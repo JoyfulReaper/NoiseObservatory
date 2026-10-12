@@ -4,6 +4,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<FakeNoiseData>();
+builder.Services.AddSingleton<INoiseEventStore, NoiseEventStore>();
 
 var app = builder.Build();
 
