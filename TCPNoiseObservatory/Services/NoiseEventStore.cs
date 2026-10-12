@@ -4,7 +4,8 @@ namespace TCPNoiseObservatory.Services;
 
 public sealed class NoiseEventStore : INoiseEventStore
 {
-    private const int MaxEvents = 1000;
+    private const int MaxEvents = 5000;
+    private const int MaxRecentEvents = 100;
     private readonly Queue<NoiseEvent> _events = new();
     private readonly object _lock = new();
 
@@ -34,6 +35,14 @@ public sealed class NoiseEventStore : INoiseEventStore
         int eventsLastFiveMin = events.Count(e => e.Timestamp >= now.AddMinutes(-5));
         int eventsLastHour = events.Count(e => e.Timestamp >= now.AddHours(-1));
 
-        return new NoiseSnapshot(eventsLastFiveMin, eventsLastHour, events);
+        var recentEvents = events
+            .OrderByDescending(e => e.Timestamp)
+            .Take(MaxRecentEvents)
+            .ToArray();
+
+        return new NoiseSnapshot(
+            eventsLastFiveMin,
+            eventsLastHour,
+            recentEvents);
     }
 }
