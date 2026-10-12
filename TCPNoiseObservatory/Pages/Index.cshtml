@@ -10,36 +10,79 @@
     <link rel="stylesheet" href="~/css/site.css" />
 </head>
 <body>
-    <main>
-        <h1>TCPNoise Observatory</h1>
+    <main class="observatory-shell">
+        <header class="masthead">
+            <div>
+                <p class="eyebrow">Live unsolicited traffic monitor</p>
+                <h1>TCPNoise Observatory</h1>
+                <p class="subtitle">A sanitized view of the background noise hitting public Internet sensors.</p>
+            </div>
+            <div class="status-panel">
+                <span class="status-label">Current conditions</span>
+                <strong class="status-value">@Model.NoiseLevel</strong>
+            </div>
+        </header>
 
-        <p>Last five minutes: @Model.Snapshot.EventsLastFiveMinutes</p>
-        <p>Last hour: @Model.Snapshot.EventsLastHour</p>
+        <section class="metrics" aria-label="Current noise metrics">
+            <article class="metric-card">
+                <span class="metric-label">Last 5 minutes</span>
+                <strong class="metric-value">@Model.Snapshot.EventsLastFiveMinutes</strong>
+                <span class="metric-unit">connection attempts</span>
+            </article>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Sensor</th>
-                    <th>Protocol</th>
-                    <th>Port</th>
-                    <th>Source</th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var noiseEvent in Model.Snapshot.RecentEvents
-                .OrderByDescending(x => x.Timestamp))
-            {
-                <tr>
-                    <td>@noiseEvent.Timestamp.ToString("HH:mm:ss")</td>
-                    <td>@noiseEvent.Sensor</td>
-                    <td>@noiseEvent.Protocol</td>
-                    <td>@noiseEvent.DestinationPort</td>
-                    <td>@noiseEvent.Source</td>
-                </tr>
-            }
-            </tbody>
-        </table>
+            <article class="metric-card">
+                <span class="metric-label">Last hour</span>
+                <strong class="metric-value">@Model.Snapshot.EventsLastHour</strong>
+                <span class="metric-unit">connection attempts</span>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-label">Recent sample</span>
+                <strong class="metric-value">@Model.Snapshot.RecentEvents.Count</strong>
+                <span class="metric-unit">sanitized events</span>
+            </article>
+        </section>
+
+        <section class="activity-panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Observation log</p>
+                    <h2>Recent activity</h2>
+                </div>
+                <span class="privacy-note">Source addresses are masked</span>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Sensor</th>
+                            <th>Protocol</th>
+                            <th>Port</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var noiseEvent in Model.Snapshot.RecentEvents
+                        .OrderByDescending(x => x.Timestamp))
+                    {
+                        <tr>
+                            <td>@noiseEvent.Timestamp.ToString("HH:mm:ss")</td>
+                            <td>@noiseEvent.Sensor</td>
+                            <td>@noiseEvent.Protocol</td>
+                            <td>@noiseEvent.DestinationPort</td>
+                            <td>@noiseEvent.Source</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            TCPNoise Observatory &mdash; public data is intentionally sanitized.
+        </footer>
     </main>
 </body>
 </html>
