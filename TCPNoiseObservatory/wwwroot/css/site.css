@@ -178,8 +178,50 @@ tbody tr:hover {
     background: rgba(83, 255, 144, 0.045);
 }
 
-td:nth-child(4) {
+td:nth-child(4),
+td:nth-child(5) {
     color: #b6ffca;
+}
+
+.event-row {
+    cursor: pointer;
+}
+
+.event-row:focus {
+    outline: 1px solid #65d88a;
+    outline-offset: -2px;
+}
+
+.event-row[aria-expanded="true"] {
+    background: rgba(83, 255, 144, 0.07);
+}
+
+.event-detail-row td {
+    padding: 0;
+    white-space: normal;
+    background: #08170f;
+}
+
+.event-detail {
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    padding: 0.8rem 1rem 1rem;
+    color: #b7d9c0;
+}
+
+.detail-label {
+    flex: 0 0 auto;
+    color: #74c991;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.72rem;
+}
+
+.event-detail code {
+    color: #e6ffed;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 footer {
@@ -212,5 +254,10 @@ footer {
     th,
     td {
         padding: 0.7rem;
+    }
+
+    .event-detail {
+        flex-direction: column;
+        gap: 0.35rem;
     }
 }
