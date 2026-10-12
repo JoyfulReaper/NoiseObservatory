@@ -26,18 +26,34 @@ If requirements are unclear, favor the simpler implementation and leave a short 
 
 For the MVP:
 
-- .NET 10 / ASP.NET Core
-- server-rendered HTML or minimal endpoints
+- .NET 10 / ASP.NET Core Razor Pages
 - no SPA framework
 - no database unless a concrete requirement appears
 - bounded in-memory recent-event state
-- NATS integration via a background service when live data is added
+- direct NATS subscription via a hosted background service
+- no intermediate ingestion API unless a concrete need appears
 - static assets must be local/self-hosted
 - application must remain useful without JavaScript
 
+The intended live path is:
+
+```text
+TCPNoise -> tcpnoise.connection -> NATS -> hosted subscriber -> sanitizer -> public event store -> Razor Pages
+```
+
 Keep raw TCPNoise transport/event types separate from public view models.
 
-A raw event should be transformed into a deliberately limited public/sanitized object before it can enter any public-facing buffer or view.
+A raw event must be transformed into a deliberately limited public/sanitized object before it can enter any public-facing buffer, aggregate, API response, or view.
+
+Do not let Razor Pages depend on or receive raw NATS event objects.
+
+## Raw TCPNoise event handling
+
+The current TCPNoise event contract contains more data than Noise Observatory needs, including remote addresses/ports, seen counts, banner information, and bounded payload data.
+
+Noise Observatory should deserialize enough of the current contract to consume events reliably, but discard fields that are not approved for public use.
+
+Use the raw event's `OccurredAt` timestamp rather than substituting page-render or receive time where practical.
 
 ## Privacy and security rules
 
@@ -47,6 +63,10 @@ Do not expose by default:
 
 - full source IP addresses
 - raw payloads
+- banner contents
+- remote/source ports
+- connection numbers
+- seen counts
 - captured credentials/tokens/headers
 - private/internal addresses
 - internal hostnames that are not explicitly approved for public display
@@ -56,7 +76,9 @@ Do not expose by default:
 
 Any new field shown publicly must be justified as safe and useful.
 
-Treat all event strings as untrusted input and escape them before HTML output.
+Sensor identifiers shown publicly should come from an explicit approved mapping rather than automatically trusting internal sensor names.
+
+Treat all event strings as untrusted input. Razor's normal encoding should remain intact; do not introduce raw HTML output for event data.
 
 Do not add geolocation or external enrichment calls without explicit approval. They add privacy, dependency, and clearnet-connectivity concerns.
 
@@ -74,22 +96,25 @@ Therefore:
 
 ## NATS integration
 
-When NATS is added:
+When wiring live data:
 
-- use the existing TCPNoise event contract rather than inventing a parallel schema unless necessary
+- subscribe directly to the existing `tcpnoise.connection` subject
+- use the existing TCPNoise event contract rather than inventing a parallel publisher schema
+- keep broker configuration outside source code
 - use cancellation correctly
 - tolerate broker disconnect/reconnect
 - do not make page rendering depend synchronously on NATS availability
-- sanitize before adding events to the public recent-event buffer
+- sanitize before adding events to the public recent-event store
+- do not expose NATS itself through the public web application
 
 ## Testing
 
 Prioritize tests around behavior that can leak data or grow without bounds:
 
 - IPv4/IPv6 sanitization
-- private-address handling
+- private/non-public address handling
 - malformed inputs
-- HTML escaping
+- approved sensor-name mapping
 - bounded recent-event buffer behavior
 - aggregation limits
 - noise-level thresholds
@@ -98,7 +123,7 @@ Do not add tests solely to inflate coverage.
 
 ## UI guidance
 
-The intended style can be playful/retro, but the output should remain readable.
+The current retro observatory/status-terminal direction is intentional and should be preserved unless there is a good reason to change it.
 
 Prefer:
 
@@ -113,7 +138,7 @@ Avoid large UI frameworks unless the project develops a real need for one.
 
 ## Documentation
 
-Keep `README.md` for what the project is and how to run it.
+Keep `README.md` for what the project is and how it works.
 
 Keep `PLAN.md` for implementation phases and pending architectural decisions.
 
@@ -129,6 +154,7 @@ Before adding any of the following, require a concrete reason:
 - authentication/accounts
 - database
 - frontend framework
+- intermediate ingestion API
 - external API dependency
 - IP geolocation
 - long-term source-IP history
