@@ -17,10 +17,10 @@ public sealed class IndexModel : PageModel
 
     public string NoiseLevel => Snapshot.EventsLastFiveMinutes switch
     {
-        < 20 => "Quiet",
-        < 50 => "Drizzle",
-        < 100 => "Rain",
-        < 150 => "Heavy Rain",
+        < 30 => "Quiet",
+        < 80 => "Drizzle",
+        < 150 => "Rain",
+        < 450 => "Heavy Rain",
         _ => "Botnet Thunderstorm"
     };
 
