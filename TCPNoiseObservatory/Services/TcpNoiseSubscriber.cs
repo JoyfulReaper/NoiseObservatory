@@ -2,17 +2,17 @@ using System.Text.Json;
 using NATS.Client.Core;
 using NATS.Net;
 using TCPNoiseObservatory.Messaging;
+using Microsoft.Extensions.Options;
+using TCPNoiseObservatory.Configuration;
 
 namespace TCPNoiseObservatory.Services;
 
 internal sealed class TcpNoiseSubscriber : BackgroundService
 {
-    private const string NatsUrl = "nats://10.99.0.1:4222"; // TODO - Configurable
-    private const string Subject = "tcpnoise.connection"; // TODO - Configurable
-
     private readonly INoiseEventStore _store;
     private readonly NoiseEventSanitizer _sanitizer;
     private readonly ILogger<TcpNoiseSubscriber> _logger;
+    private readonly TcpNoiseOptions _options;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -22,10 +22,12 @@ internal sealed class TcpNoiseSubscriber : BackgroundService
     public TcpNoiseSubscriber(
         INoiseEventStore store,
         NoiseEventSanitizer sanitizer,
+        IOptions<TcpNoiseOptions> options,
         ILogger<TcpNoiseSubscriber> logger)
     {
         _store = store;
         _sanitizer = sanitizer;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -34,7 +36,7 @@ internal sealed class TcpNoiseSubscriber : BackgroundService
     {
         var options = NatsOpts.Default with
         {
-            Url = NatsUrl,
+            Url = _options.NatsUrl,
             Name = "noise-observatory",
             RetryOnInitialConnect = true
         };
@@ -44,7 +46,7 @@ internal sealed class TcpNoiseSubscriber : BackgroundService
         try
         {
             await foreach (var message in nats.SubscribeAsync<string>(
-                Subject,
+                _options.Subject,
                 cancellationToken: stoppingToken))
             {
                 TcpNoiseEventEnvelope? rawEvent;
@@ -61,6 +63,12 @@ internal sealed class TcpNoiseSubscriber : BackgroundService
                 }
 
                 if (rawEvent is null)
+                {
+                    continue;
+                }
+
+                if (_options.AllowedSensors.Count > 0 &&
+                    !_options.AllowedSensors.Contains(rawEvent.Payload.Sensor))
                 {
                     continue;
                 }
