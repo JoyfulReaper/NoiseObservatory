@@ -1,0 +1,216 @@
+:root {
+    color-scheme: dark;
+    font-family: "Courier New", Courier, monospace;
+    background: #07110d;
+    color: #d7f7df;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top right, rgba(68, 255, 154, 0.08), transparent 30rem),
+        #07110d;
+    color: #d7f7df;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-size: 100% 4px;
+    opacity: 0.45;
+}
+
+.observatory-shell {
+    width: min(1100px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 2rem 0 3rem;
+}
+
+.masthead,
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    align-items: flex-end;
+}
+
+.masthead {
+    padding: 1.25rem 0 1.75rem;
+    border-bottom: 1px solid #244936;
+}
+
+h1,
+h2,
+p {
+    margin-top: 0;
+}
+
+h1 {
+    margin-bottom: 0.5rem;
+    font-size: clamp(2rem, 6vw, 4rem);
+    line-height: 0.95;
+    letter-spacing: -0.05em;
+    color: #f0fff4;
+}
+
+h2 {
+    margin-bottom: 0;
+    font-size: 1.4rem;
+    color: #effff3;
+}
+
+.eyebrow,
+.metric-label,
+.status-label,
+.privacy-note,
+footer {
+    color: #74c991;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+}
+
+.subtitle {
+    max-width: 48rem;
+    margin-bottom: 0;
+    color: #9fc7aa;
+    line-height: 1.6;
+}
+
+.status-panel {
+    min-width: 15rem;
+    padding: 1rem;
+    border: 1px solid #2c6746;
+    background: rgba(10, 32, 22, 0.72);
+    box-shadow: 0 0 24px rgba(75, 255, 148, 0.05) inset;
+}
+
+.status-label,
+.status-value {
+    display: block;
+}
+
+.status-value {
+    margin-top: 0.35rem;
+    color: #8dffad;
+    font-size: 1.35rem;
+}
+
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.metric-card {
+    padding: 1rem;
+    border: 1px solid #214c35;
+    background: rgba(8, 27, 18, 0.72);
+}
+
+.metric-label,
+.metric-value,
+.metric-unit {
+    display: block;
+}
+
+.metric-value {
+    margin: 0.35rem 0 0.2rem;
+    font-size: 2rem;
+    color: #f0fff4;
+}
+
+.metric-unit {
+    color: #8eaf98;
+    font-size: 0.8rem;
+}
+
+.activity-panel {
+    border: 1px solid #214c35;
+    background: rgba(5, 18, 12, 0.78);
+}
+
+.section-heading {
+    padding: 1rem;
+    border-bottom: 1px solid #214c35;
+}
+
+.section-heading .eyebrow {
+    margin-bottom: 0.25rem;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+th,
+td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid #173725;
+}
+
+th {
+    color: #89d7a2;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: #0a1d14;
+}
+
+tbody tr:hover {
+    background: rgba(83, 255, 144, 0.045);
+}
+
+td:nth-child(4) {
+    color: #b6ffca;
+}
+
+footer {
+    padding-top: 1.5rem;
+    text-align: center;
+    color: #57846a;
+}
+
+@media (max-width: 760px) {
+    .observatory-shell {
+        width: min(100% - 1rem, 1100px);
+        padding-top: 0.5rem;
+    }
+
+    .masthead,
+    .section-heading {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .status-panel {
+        min-width: 0;
+    }
+
+    .metrics {
+        grid-template-columns: 1fr;
+    }
+
+    th,
+    td {
+        padding: 0.7rem;
+    }
+}
