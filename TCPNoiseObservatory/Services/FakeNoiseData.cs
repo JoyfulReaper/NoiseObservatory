@@ -27,6 +27,7 @@ public sealed class FakeNoiseData
 
         var ports = new[] { 80, 443, 21, 22 };
         var selectedPort = ports[Random.Shared.Next(ports.Length)];
+        ulong seenCount = (ulong)Random.Shared.Next(1, 5001);
 
         var octet1 = Random.Shared.Next(1, 255);
         var octet2 = Random.Shared.Next(1, 255);
@@ -38,7 +39,10 @@ public sealed class FakeNoiseData
             Sensor: $"FakeSensor-{sensorNum}",
             Protocol: "TCP",
             DestinationPort: selectedPort,
-            Source: ip);
+            Source: ip,
+            SeenCount: seenCount,
+            Banner: null,
+            BannerSent: false);
 
         return noiseEvent;
     }
