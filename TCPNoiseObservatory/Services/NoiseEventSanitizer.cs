@@ -16,7 +16,13 @@ internal sealed class NoiseEventSanitizer
             {
                 return null;
             }
-            
+
+            if (!IsAllowedOverlayAddress(raw.Payload.Sensor, parsedIp)
+                && IsPrivateOrLocal(parsedIp))
+            {
+                return null;
+            }
+
             byte[] bytes = parsedIp.GetAddressBytes();
 
             if (raw.Payload.IpVersion == 4 && parsedIp.AddressFamily == AddressFamily.InterNetwork)
@@ -51,5 +57,93 @@ internal sealed class NoiseEventSanitizer
         );
 
         return noiseEvent;
+    }
+
+    private static bool IsPrivateOrLocal(IPAddress address)
+    {
+        var bytes = address.GetAddressBytes();
+
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+        {
+            return
+                bytes[0] == 10 ||
+                (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+                (bytes[0] == 192 && bytes[1] == 168) ||
+                (bytes[0] == 169 && bytes[1] == 254);
+        }
+
+        if (address.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            return
+                address.IsIPv6LinkLocal || (bytes[0] & 0xFE) == 0xFC;
+        }
+
+        return true;
+    }
+
+    private static bool IsAllowedOverlayAddress(
+        string sensor,
+        IPAddress address)
+    {
+        if (sensor.EndsWith("-ygg", StringComparison.OrdinalIgnoreCase))
+        {
+            return IsYggdrasilAddress(address);
+        }
+
+        if (sensor.EndsWith("-dn42", StringComparison.OrdinalIgnoreCase))
+        {
+            return IsDn42Address(address);
+        }
+
+        return false;
+    }
+
+    private static bool IsYggdrasilAddress(IPAddress address)
+    {
+        if (address.AddressFamily != AddressFamily.InterNetworkV6)
+        {
+            return false;
+        }
+
+        var bytes = address.GetAddressBytes();
+
+        // Yggdrasil uses 200::/7.
+        // First byte is therefore 0x02 or 0x03.
+        return (bytes[0] & 0xFE) == 0x02;
+    }
+
+    private static bool IsDn42Address(IPAddress address)
+    {
+        var bytes = address.GetAddressBytes();
+
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+        {
+            return
+                // 172.20.0.0/14
+                (bytes[0] == 172 &&
+                 bytes[1] >= 20 &&
+                 bytes[1] <= 23) ||
+
+                // 172.31.0.0/16
+                (bytes[0] == 172 &&
+                 bytes[1] == 31) ||
+
+                // 10.100.0.0/14
+                (bytes[0] == 10 &&
+                 bytes[1] >= 100 &&
+                 bytes[1] <= 103) ||
+
+                // 10.127.0.0/16
+                (bytes[0] == 10 &&
+                 bytes[1] == 127);
+        }
+
+        if (address.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            // DN42 IPv6 uses ULA space, fd00::/8.
+            return bytes[0] == 0xFD;
+        }
+
+        return false;
     }
 }
