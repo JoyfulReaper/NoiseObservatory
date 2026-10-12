@@ -6,11 +6,11 @@ namespace TCPNoiseObservatory.Pages;
 
 public sealed class IndexModel : PageModel
 {
-    private readonly FakeNoiseData _fakeNoiseData;
+    private readonly INoiseEventStore _noiseEventStore;
 
-    public IndexModel(FakeNoiseData fakeNoiseData)
+    public IndexModel(INoiseEventStore noiseEventStore)
     {
-        _fakeNoiseData = fakeNoiseData;
+        _noiseEventStore = noiseEventStore;
     }
 
     public NoiseSnapshot Snapshot { get; private set; } = default!;
@@ -26,6 +26,6 @@ public sealed class IndexModel : PageModel
 
     public void OnGet()
     {
-        Snapshot = _fakeNoiseData.GetSnapshot();
+        Snapshot = _noiseEventStore.GetSnapshot();
     }
 }
