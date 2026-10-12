@@ -44,49 +44,68 @@ By default the application should not expose:
 
 See [PRIVACY.md](PRIVACY.md) for the working data-exposure rules.
 
-## Initial architecture
+## Architecture
+
+Noise Observatory consumes TCPNoise events directly from the existing private NATS event bus. There is no intermediate ingestion API in the MVP.
 
 ```text
 TCPNoise sensors
        |
        v
-existing TCPNoise event transport (NATS)
+ tcpnoise.connection
        |
        v
-Noise Observatory subscriber
+      NATS
        |
-       +--> bounded recent-event buffer
-       +--> in-memory aggregate counters
+       v
+Noise Observatory hosted subscriber
+       |
+       v
+raw TCPNoise event DTO
+       |
+       v
+sanitizer / public mapping
+       |
+       +--> bounded recent-event store
+       +--> rolling aggregate counters
        +--> noise-level calculation
        |
        v
-small ASP.NET Core web application
+ASP.NET Core Razor Pages
        |
-       +--> clearnet (optional)
        +--> DN42
        +--> Yggdrasil
+       +--> clearnet (optional)
 ```
+
+The public Razor page should never receive the raw TCPNoise transport object. Raw fields are mapped into a deliberately limited public `NoiseEvent` before entering public-facing state.
+
+TCPNoise currently publishes live events on:
+
+```text
+tcpnoise.connection
+```
+
+The raw event includes transport data such as sensor, listen port, IP version, remote address/port, seen count, banner information, and bounded payload data. Noise Observatory intentionally discards fields it does not need for public display.
 
 The MVP intentionally starts without a database. Historical storage can be added later only if it has a clear use.
 
 ## Technology
 
-Planned initial stack:
+Current stack:
 
 - .NET 10
-- ASP.NET Core
-- server-rendered HTML / minimal endpoints
-- NATS for TCPNoise event consumption
-- in-memory bounded state for the MVP
+- ASP.NET Core Razor Pages
+- NATS for direct TCPNoise event consumption
+- bounded in-memory state for recent events and aggregates
 - local/self-hosted CSS and other assets
+- no frontend framework
 
-No frontend framework is required for the first version.
+## Development status
 
-## Development plan
+The fake-data Razor page and retro observatory UI are working. The next milestone is the raw-event-to-public-event privacy boundary, followed by live NATS ingestion.
 
-See [PLAN.md](PLAN.md).
-
-The first milestone is intentionally fake-data-first: build the page shape and aggregation model before connecting it to live TCPNoise events. This keeps presentation, privacy rules, and event transport from becoming one debugging problem.
+See [PLAN.md](PLAN.md) for the implementation sequence.
 
 ## License
 
