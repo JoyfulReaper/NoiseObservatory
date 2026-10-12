@@ -8,6 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TCPNoise Observatory</title>
     <link rel="stylesheet" href="~/css/site.css" />
+    <script src="~/js/site.js" defer></script>
 </head>
 <body>
     <main class="observatory-shell">
@@ -60,19 +61,47 @@
                             <th>Sensor</th>
                             <th>Protocol</th>
                             <th>Port</th>
+                            <th>Seen</th>
                             <th>Source</th>
                         </tr>
                     </thead>
                     <tbody>
-                    @foreach (var noiseEvent in Model.Snapshot.RecentEvents
-                        .OrderByDescending(x => x.Timestamp))
+                    @for (var i = 0; i < Model.Snapshot.RecentEvents.Count; i++)
                     {
-                        <tr>
+                        var noiseEvent = Model.Snapshot.RecentEvents[i];
+                        var detailId = $"event-detail-{i}";
+
+                        <tr class="event-row"
+                            tabindex="0"
+                            role="button"
+                            aria-expanded="false"
+                            aria-controls="@detailId"
+                            data-detail-id="@detailId">
                             <td>@noiseEvent.Timestamp.ToString("HH:mm:ss")</td>
                             <td>@noiseEvent.Sensor</td>
                             <td>@noiseEvent.Protocol</td>
                             <td>@noiseEvent.DestinationPort</td>
+                            <td>@noiseEvent.SeenCount</td>
                             <td>@noiseEvent.Source</td>
+                        </tr>
+                        <tr id="@detailId" class="event-detail-row" hidden>
+                            <td colspan="6">
+                                <div class="event-detail">
+                                    <span class="detail-label">Banner</span>
+                                    @if (!noiseEvent.BannerSent)
+                                    {
+                                        <span>No banner sent</span>
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(noiseEvent.Banner))
+                                    {
+                                        <span>Banner sent</span>
+                                    }
+                                    else
+                                    {
+                                        <code>@noiseEvent.Banner</code>
+                                    }
+                                </div>
+                            </td>
                         </tr>
                     }
                     </tbody>
