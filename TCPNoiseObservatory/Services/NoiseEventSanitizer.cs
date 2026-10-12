@@ -7,6 +7,8 @@ namespace TCPNoiseObservatory.Services;
 
 internal sealed class NoiseEventSanitizer
 {
+    private const int MaxBannerLength = 200;
+
     public NoiseEvent? Sanitize(TcpNoiseEventEnvelope raw)
     {
         var remoteIp = raw.Payload.RemoteAddress;
@@ -47,16 +49,43 @@ internal sealed class NoiseEventSanitizer
             return null;
         }
 
+        var banner = raw.Payload.BannerSent
+            ? SanitizeBanner(raw.Payload.Banner)
+            : null;
 
         var noiseEvent = new NoiseEvent(
             raw.OccurredAt,
             raw.Payload.Sensor,
             "TCP",
             raw.Payload.ListenPort,
-            remoteIp
+            remoteIp,
+            raw.Payload.SeenCount,
+            raw.Payload.BannerSent,
+            banner
         );
 
         return noiseEvent;
+    }
+
+    private static string? SanitizeBanner(string? banner)
+    {
+        if (string.IsNullOrWhiteSpace(banner))
+        {
+            return null;
+        }
+
+        var sanitized = string.Concat(
+            banner.Select(c => char.IsControl(c) ? ' ' : c))
+            .Trim();
+
+        if (sanitized.Length == 0)
+        {
+            return null;
+        }
+
+        return sanitized.Length <= MaxBannerLength
+            ? sanitized
+            : sanitized[..MaxBannerLength] + "…";
     }
 
     private static bool IsPrivateOrLocal(IPAddress address)
