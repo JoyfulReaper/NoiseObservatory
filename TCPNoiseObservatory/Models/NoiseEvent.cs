@@ -5,4 +5,7 @@ public sealed record NoiseEvent(
     string Sensor,
     string Protocol,
     int DestinationPort,
-    string Source);
+    string Source,
+    ulong SeenCount,
+    bool BannerSent,
+    string? Banner);
