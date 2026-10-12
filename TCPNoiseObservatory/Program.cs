@@ -1,13 +1,14 @@
 using TCPNoiseObservatory.Services;
-using TCPNoiseObservatory.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddRazorPages();
 builder.Services.AddSingleton<FakeNoiseData>();
-builder.Services.AddSingleton<ObservatoryHtmlRenderer>();
 
 var app = builder.Build();
 
-app.MapObservatoryEndpoints();
+app.UseStaticFiles();
+app.MapRazorPages();
+//app.MapObservatoryEndpoints();
 
 app.Run();

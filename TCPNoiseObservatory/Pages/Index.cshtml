@@ -1,0 +1,45 @@
+@page
+@model TCPNoiseObservatory.Pages.IndexModel
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TCPNoise Observatory</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <main>
+        <h1>TCPNoise Observatory</h1>
+
+        <p>Last five minutes: @Model.Snapshot.EventsLastFiveMinutes</p>
+        <p>Last hour: @Model.Snapshot.EventsLastHour</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Sensor</th>
+                    <th>Protocol</th>
+                    <th>Port</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var noiseEvent in Model.Snapshot.RecentEvents
+                .OrderByDescending(x => x.Timestamp))
+            {
+                <tr>
+                    <td>@noiseEvent.Timestamp.ToString("HH:mm:ss")</td>
+                    <td>@noiseEvent.Sensor</td>
+                    <td>@noiseEvent.Protocol</td>
+                    <td>@noiseEvent.DestinationPort</td>
+                    <td>@noiseEvent.Source</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </main>
+</body>
+</html>
