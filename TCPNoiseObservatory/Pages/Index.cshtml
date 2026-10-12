@@ -24,6 +24,17 @@
             </div>
         </header>
 
+        <div class="refresh-controls">
+            <button type="button" id="refresh-now">Refresh now</button>
+
+            <label>
+                <input type="checkbox" id="auto-refresh" checked />
+                Auto refresh
+            </label>
+
+            <span id="refresh-status">10s</span>
+        </div>
+
         <section class="metrics" aria-label="Current noise metrics">
             <article class="metric-card">
                 <span class="metric-label">Last 5 minutes</span>
@@ -113,5 +124,43 @@
             TCPNoise Observatory &mdash; public data is intentionally sanitized.
         </footer>
     </main>
+    <script>
+        (() => {
+            const intervalMs = 30_000;
+
+            const refreshButton = document.getElementById("refresh-now");
+            const autoRefresh = document.getElementById("auto-refresh");
+            const status = document.getElementById("refresh-status");
+
+            let secondsRemaining = intervalMs / 1000;
+
+            refreshButton.addEventListener("click", () => {
+                window.location.reload();
+            });
+
+            setInterval(() => {
+                if (!autoRefresh.checked) {
+                    status.textContent = "paused";
+                    return;
+                }
+
+                secondsRemaining--;
+
+                if (secondsRemaining <= 0) {
+                    window.location.reload();
+                    return;
+                }
+
+                status.textContent = `${secondsRemaining}s`;
+            }, 1000);
+
+            autoRefresh.addEventListener("change", () => {
+                secondsRemaining = intervalMs / 1000;
+                status.textContent = autoRefresh.checked
+                    ? `${secondsRemaining}s`
+                    : "paused";
+            });
+        })();
+    </script>
 </body>
 </html>
