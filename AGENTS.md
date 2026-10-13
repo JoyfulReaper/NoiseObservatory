@@ -4,7 +4,7 @@ Guidance for AI-assisted work in this repository.
 
 ## Project purpose
 
-Noise Observatory is a small, public, read-only visualization of sanitized TCPNoise activity. It should remain lightweight, understandable, and safe to expose over clearnet, DN42, and Yggdrasil.
+Noise Observatory is a small, public, read-only visualization of sanitized TCPNoise activity. It should remain lightweight, understandable, and safe to expose over clearnet, DN42, Yggdrasil, and I2P.
 
 Do not turn it into a general monitoring platform, SIEM, packet-analysis suite, or frontend-heavy dashboard.
 
@@ -29,23 +29,39 @@ For the current MVP:
 - .NET 10 / ASP.NET Core Razor Pages
 - no SPA framework
 - no database unless a concrete requirement appears
-- bounded in-memory recent-event state
-- direct NATS subscription via a hosted background service
-- no intermediate ingestion API unless a concrete need appears
+- bounded in-memory recent-event/public snapshot state
+- direct/source mode consumes private NATS through a hosted background service
+- remote snapshot mode may consume only another Observatory instance's sanitized `/api/snapshot`
 - static assets must be local/self-hosted
 - core content must remain useful without JavaScript
 
-The live path is:
+There are two approved runtime modes.
+
+### Direct/source mode
+
+When `RemoteSnapshot:Url` is blank, the live path is:
 
 ```text
-TCPNoise -> tcpnoise.connection -> NATS -> hosted subscriber -> sanitizer -> public event store -> Razor Pages
+TCPNoise -> tcpnoise.connection -> NATS -> hosted subscriber -> sanitizer -> public event store -> Razor Pages / /api/snapshot
 ```
+
+The direct/source instance is the only mode that receives raw TCPNoise event envelopes.
+
+### Remote snapshot mode
+
+When `RemoteSnapshot:Url` is configured, the application must not register the NATS subscriber. The live path is:
+
+```text
+trusted Observatory /api/snapshot -> RemoteSnapshotPoller -> RemoteSnapshotCache -> Razor Pages / /api/snapshot
+```
+
+Remote mode exists so a deployment such as the I2P gateway can serve the Observatory without being connected to the private NATS network. It mirrors already-sanitized public state; it is not a raw ingestion path and is not a substitute for the source sanitizer.
 
 Keep raw TCPNoise transport/event types separate from public view models.
 
 A raw event must be transformed into a deliberately limited public/sanitized object before it can enter any public-facing buffer, aggregate, API response, or view.
 
-Do not let Razor Pages depend on or receive raw NATS event objects.
+Do not let Razor Pages, `/api/snapshot`, or remote mirror state depend on or receive raw NATS event objects.
 
 ## Raw TCPNoise event handling
 
@@ -86,6 +102,22 @@ Treat all event strings as untrusted input. Razor's normal encoding should remai
 
 Do not add geolocation or external enrichment calls without explicit approval. They add privacy, dependency, and clearnet-connectivity concerns.
 
+## Public snapshot API
+
+`GET /api/snapshot` is intentionally public and may return only the already-sanitized public `NoiseSnapshot` representation used by the UI.
+
+When changing it:
+
+- never serialize raw TCPNoise DTOs directly
+- never add raw payload data, full source addresses, source ports, or connection numbers
+- keep the endpoint independent of direct NATS access
+- preserve the sanitizer as the privacy boundary in direct/source mode
+- do not turn the endpoint into a write/ingestion API
+- keep remote mirror input limited to trusted Observatory snapshot endpoints
+- keep `PRIVACY.md`, `README.md`, and `PLAN.md` synchronized with any public-data change
+
+The deployed I2P mirror polls the clearnet source's sanitized snapshot endpoint over HTTPS. It does not have NATS access.
+
 ## Resource limits
 
 The service may receive bursty traffic indirectly through TCPNoise.
@@ -97,12 +129,13 @@ Therefore:
 - malformed events should be skipped/logged rather than crash the process
 - avoid unbounded cardinality maps keyed by attacker-controlled input
 - aggregate data should have explicit size/window limits
+- remote snapshot state must remain bounded
 
 The current aggregate counts are derived from the bounded retained event buffer, so longer windows can undercount during sufficiently large bursts. Prefer bounded rolling aggregate counters for a future fix rather than making the recent-event buffer unbounded.
 
 ## NATS integration
 
-When changing live data handling:
+When changing direct/source live data handling:
 
 - subscribe directly to the existing `tcpnoise.connection` subject
 - use the existing TCPNoise event contract rather than inventing a parallel publisher schema
@@ -112,6 +145,21 @@ When changing live data handling:
 - do not make page rendering depend synchronously on NATS availability
 - sanitize before adding events to the public recent-event store
 - do not expose NATS itself through the public web application
+
+Remote snapshot mode is intentionally separate from NATS and must remain usable without broker connectivity.
+
+## Remote snapshot integration
+
+When changing remote mode:
+
+- use the sanitized `/api/snapshot` contract rather than inventing a second public event schema
+- do not connect the remote mirror to private NATS merely for convenience
+- keep polling cancellation-aware and bounded
+- use reasonable timeouts and intervals
+- retain only the last successful sanitized snapshot in memory
+- tolerate temporary upstream failure without crashing the page
+- do not log response bodies containing event data during routine failures
+- do not forward visitor-specific information to the snapshot source
 
 ## Testing
 
@@ -126,6 +174,9 @@ Prioritize tests around behavior that can leak data or grow without bounds:
 - bounded recent-event buffer behavior
 - aggregation limits
 - noise-level thresholds
+- snapshot serialization/public contract
+- remote snapshot polling/cache behavior
+- confirmation that remote mode does not register the NATS subscriber
 
 Do not add tests solely to inflate coverage.
 
@@ -146,11 +197,22 @@ Avoid large UI frameworks unless the project develops a real need for one.
 
 ## Deployment
 
-The MVP is deployed over clearnet, DN42, and Yggdrasil. Keep deployment changes compatible with the existing Docker/nginx setup unless there is a concrete reason to change it.
+The Observatory is deployed over four networks:
+
+- clearnet: `https://noise.kgivler.com/`
+- DN42: `https://noise.joyfulreaper.dn42/`
+- Yggdrasil: `http://noise.ygg.kgivler.com/`
+- I2P: `http://noise.joyfulreaper.i2p/`
+
+Clearnet, DN42, and Yggdrasil currently use the direct/source deployment. I2P uses a separate remote snapshot instance behind a Java I2P HTTP server tunnel.
+
+Keep deployment changes compatible with the existing Docker/nginx/I2P setup unless there is a concrete reason to change it.
 
 Current public endpoints are documented in `README.md` and `PLAN.md`; keep them synchronized when deployment changes.
 
 The Yggdrasil endpoint currently uses plain HTTP over Yggdrasil transport. Do not assume that implies ordinary Internet-routable HTTP exposure.
+
+The I2P endpoint is served from an I2P-local mirror. Do not assume the I2P gateway has or should gain access to the private VPN/NATS network.
 
 ## Documentation
 
@@ -170,11 +232,13 @@ Before adding any of the following, require a concrete reason:
 - authentication/accounts
 - database
 - frontend framework
-- intermediate ingestion API
-- external API dependency
+- raw/intermediate ingestion API
+- additional external API dependencies
 - IP geolocation
 - long-term source-IP history
 - raw packet payload display
 - complex plugin architecture
+
+The existing sanitized `/api/snapshot` egress endpoint and remote mirror mode are approved architecture. They do not imply permission to add a raw public ingestion API or broaden the public event contract.
 
 A feature being technically possible is not enough reason to add it.
