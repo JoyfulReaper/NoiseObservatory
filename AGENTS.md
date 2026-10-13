@@ -4,7 +4,7 @@ Guidance for AI-assisted work in this repository.
 
 ## Project purpose
 
-Noise Observatory is a small, public, read-only visualization of sanitized TCPNoise activity. It should remain lightweight, understandable, and safe to expose over DN42, Yggdrasil, and optionally the normal web.
+Noise Observatory is a small, public, read-only visualization of sanitized TCPNoise activity. It should remain lightweight, understandable, and safe to expose over clearnet, DN42, and Yggdrasil.
 
 Do not turn it into a general monitoring platform, SIEM, packet-analysis suite, or frontend-heavy dashboard.
 
@@ -24,7 +24,7 @@ If requirements are unclear, favor the simpler implementation and leave a short 
 
 ## Architecture constraints
 
-For the MVP:
+For the current MVP:
 
 - .NET 10 / ASP.NET Core Razor Pages
 - no SPA framework
@@ -33,9 +33,9 @@ For the MVP:
 - direct NATS subscription via a hosted background service
 - no intermediate ingestion API unless a concrete need appears
 - static assets must be local/self-hosted
-- application must remain useful without JavaScript
+- core content must remain useful without JavaScript
 
-The intended live path is:
+The live path is:
 
 ```text
 TCPNoise -> tcpnoise.connection -> NATS -> hosted subscriber -> sanitizer -> public event store -> Razor Pages
@@ -51,9 +51,11 @@ Do not let Razor Pages depend on or receive raw NATS event objects.
 
 The current TCPNoise event contract contains more data than Noise Observatory needs, including remote addresses/ports, seen counts, banner information, and bounded payload data.
 
-Noise Observatory should deserialize enough of the current contract to consume events reliably, but discard fields that are not approved for public use.
+Noise Observatory should deserialize enough of the current contract to consume events reliably, but only carry explicitly approved fields into the public model.
 
 Use the raw event's `OccurredAt` timestamp rather than substituting page-render or receive time where practical.
+
+The current public model intentionally includes `SeenCount`, `BannerSent`, and sanitized banner text. That is an explicit policy choice, not permission to expose additional raw event fields.
 
 ## Privacy and security rules
 
@@ -63,20 +65,22 @@ Do not expose by default:
 
 - full source IP addresses
 - raw payloads
-- banner contents
 - remote/source ports
 - connection numbers
-- seen counts
 - captured credentials/tokens/headers
-- private/internal addresses
+- private/internal addresses except approved overlay-network cases handled by the sanitizer
 - internal hostnames that are not explicitly approved for public display
 - detailed firewall rules
 - hidden network topology
 - arbitrary raw TCPNoise fields simply because they are available
 
-Any new field shown publicly must be justified as safe and useful.
+Approved current public fields include masked source addresses, destination port, approved sensor name, timestamp, protocol, `SeenCount`, banner-sent state, and sanitized/length-limited banner text.
 
-Sensor identifiers shown publicly should come from an explicit approved mapping rather than automatically trusting internal sensor names.
+Banner text must remain treated as untrusted input: control characters must not pass through unchanged, output must remain bounded, and Razor's normal HTML encoding must not be bypassed.
+
+Any new field shown publicly must be justified as safe and useful and should be reflected in `PRIVACY.md`.
+
+Sensor identifiers shown publicly must come from an explicit allowlist or approved mapping rather than automatically trusting internal sensor names.
 
 Treat all event strings as untrusted input. Razor's normal encoding should remain intact; do not introduce raw HTML output for event data.
 
@@ -94,9 +98,11 @@ Therefore:
 - avoid unbounded cardinality maps keyed by attacker-controlled input
 - aggregate data should have explicit size/window limits
 
+The current aggregate counts are derived from the bounded retained event buffer, so longer windows can undercount during sufficiently large bursts. Prefer bounded rolling aggregate counters for a future fix rather than making the recent-event buffer unbounded.
+
 ## NATS integration
 
-When wiring live data:
+When changing live data handling:
 
 - subscribe directly to the existing `tcpnoise.connection` subject
 - use the existing TCPNoise event contract rather than inventing a parallel publisher schema
@@ -113,8 +119,10 @@ Prioritize tests around behavior that can leak data or grow without bounds:
 
 - IPv4/IPv6 sanitization
 - private/non-public address handling
+- DN42/Yggdrasil overlay handling
 - malformed inputs
-- approved sensor-name mapping
+- approved sensor-name behavior
+- banner sanitization and truncation
 - bounded recent-event buffer behavior
 - aggregation limits
 - noise-level thresholds
@@ -135,6 +143,14 @@ Prefer:
 - small page weight
 
 Avoid large UI frameworks unless the project develops a real need for one.
+
+## Deployment
+
+The MVP is deployed over clearnet, DN42, and Yggdrasil. Keep deployment changes compatible with the existing Docker/nginx setup unless there is a concrete reason to change it.
+
+Current public endpoints are documented in `README.md` and `PLAN.md`; keep them synchronized when deployment changes.
+
+The Yggdrasil endpoint currently uses plain HTTP over Yggdrasil transport. Do not assume that implies ordinary Internet-routable HTTP exposure.
 
 ## Documentation
 
@@ -158,7 +174,7 @@ Before adding any of the following, require a concrete reason:
 - external API dependency
 - IP geolocation
 - long-term source-IP history
-- packet payload display
+- raw packet payload display
 - complex plugin architecture
 
 A feature being technically possible is not enough reason to add it.
