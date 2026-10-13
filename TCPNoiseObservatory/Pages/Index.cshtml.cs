@@ -20,7 +20,7 @@ public sealed class IndexModel : PageModel
         < 35 => "Quiet",
         < 50 => "Drizzle",
         < 175 => "Rain",
-        < 500 => "Heavy Rain",
+        < 325 => "Heavy Rain",
         _ => "Botnet Thunderstorm"
     };
 
