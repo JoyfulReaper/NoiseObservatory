@@ -5,6 +5,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 
+builder.Services.AddCors(options => options.AddPolicy("LabSnapshot", policy =>
+    policy.WithOrigins("https://kgivler.com", "https://www.kgivler.com")
+        .WithMethods("GET")));
+
 builder.Services.Configure<TcpNoiseOptions>(
     builder.Configuration.GetSection("TcpNoise"));
 
@@ -38,6 +42,8 @@ else
 var app = builder.Build();
 
 app.UseStaticFiles();
+app.UseRouting();
+app.UseCors();
 
 app.MapGet("/health", () => Results.Ok(new
 {
@@ -49,8 +55,11 @@ app.MapGet("/api/snapshot", (HttpContext context, INoiseSnapshotProvider snapsho
 {
     context.Response.Headers.CacheControl = "no-store";
     return Results.Ok(snapshots.GetSnapshot());
-});
+}).RequireCors("LabSnapshot");
 
 app.MapRazorPages();
 
 app.Run();
+
+// Allow the integration tests to host the actual HTTP pipeline.
+public partial class Program { }

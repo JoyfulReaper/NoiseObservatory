@@ -19,6 +19,15 @@ The Yggdrasil service has the dedicated routed address `301:6610:cf9f:bae9::80`.
 
 The clearnet, DN42, and Yggdrasil endpoints are served by the direct/source instance. The I2P endpoint is a second Observatory instance that polls the source instance's sanitized snapshot API and serves that public state locally inside I2P. I2P clients therefore do not need clearnet access themselves, although the I2P gateway currently uses clearnet HTTPS to refresh its sanitized snapshot.
 
+## Public snapshot API
+
+`GET /api/snapshot` returns the existing sanitized snapshot as camelCase JSON with
+`Cache-Control: no-store`. The kgivler.com Lab reads this endpoint directly.
+Endpoint-scoped CORS permits GET only from `https://kgivler.com` and
+`https://www.kgivler.com`, without credentials or additional request headers.
+Other routes have no CORS grant. Server-to-server snapshot polling, including
+the I2P remote mirror, is unaffected.
+
 ## What it shows
 
 The current page includes:
