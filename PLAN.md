@@ -1,6 +1,6 @@
 # Noise Observatory Plan
 
-This plan is intentionally incremental. The project should become useful quickly without turning into a second monitoring platform.
+This plan is intentionally incremental. The project should remain useful and small rather than turning into a second monitoring platform.
 
 ## MVP definition
 
@@ -8,42 +8,53 @@ A successful first release displays a small public page containing:
 
 - an overall current noise level
 - total events for recent windows such as 5 minutes and 1 hour
-- event counts per sensor
-- top destination ports
 - a bounded recent-event feed
 - sanitized source information
+- destination ports and approved sensor names
 - no dependency on external CDNs or clearnet APIs
+- direct live ingestion from TCPNoise through private NATS
 
 The MVP does not require persistent history.
 
+## Current status
+
+Status: **MVP deployed**.
+
+The Observatory is currently live over:
+
+- clearnet: `https://noise.kgivler.com/`
+- DN42: `https://noise.joyfulreaper.dn42/`
+- Yggdrasil: `http://noise.ygg.kgivler.com/`
+
+The Yggdrasil endpoint uses dedicated routed address `301:6610:cf9f:bae9::80`.
+
 ## Phase 1 — Page shape with fake data
 
-Status: **complete enough to move on**.
+Status: **complete**.
 
-Implemented so far:
+Implemented:
 
 - .NET 10 ASP.NET Core app
 - Razor Pages UI
 - `NoiseEvent` / `NoiseSnapshot` public models
-- fake snapshot provider
 - local/self-hosted CSS
 - retro observatory/status-terminal presentation
 - derived current-conditions label
-- masked fake source addresses
+- masked source-address presentation
 
-The current page proves the presentation path without NATS in the loop.
+The fake-data provider served its purpose and the page now uses live state.
 
 ## Phase 2 — Raw event contract and sanitization boundary
 
-Implement the privacy boundary independently from live subscription plumbing.
+Status: **complete for the MVP**.
 
-TCPNoise currently publishes on:
+TCPNoise publishes on:
 
 ```text
 tcpnoise.connection
 ```
 
-A raw event envelope includes fields such as:
+The raw event envelope includes fields such as:
 
 ```text
 OccurredAt
@@ -60,39 +71,26 @@ Payload.PayloadLength
 Payload.Payload
 ```
 
-Noise Observatory should model the raw transport separately from the public model.
+Raw transport models remain separate from the public `NoiseEvent` model.
 
-Suggested shape:
+Current sanitizer behavior includes:
 
-```text
-Messaging/
-  TcpNoiseEventEnvelope.cs
+- uses the raw event's `OccurredAt` timestamp
+- maps listen port to public destination port
+- reports the public protocol as TCP
+- deterministically masks IPv4 and IPv6 source addresses
+- rejects malformed addresses and IP-version mismatches
+- rejects loopback/private/local addresses unless the sensor/address combination is an explicitly recognized DN42 or Yggdrasil overlay case
+- carries `SeenCount` into the public model
+- carries banner state into the public model
+- sanitizes banner text by replacing control characters and limiting it to 200 characters
+- never carries raw payload data, remote source port, or connection number into the public model
 
-Services/
-  NoiseEventSanitizer.cs
-```
-
-The sanitizer maps a raw TCPNoise event into the deliberately limited public `NoiseEvent` model.
-
-Requirements:
-
-- use the raw event's `OccurredAt` timestamp
-- map approved sensor names only
-- map listen port to public destination port
-- derive public protocol as TCP
-- deterministically mask/coarsen IPv4 source addresses
-- deterministically mask/coarsen IPv6 source addresses
-- omit or generically label private, loopback, link-local, and other non-public addresses
-- do not expose raw payload, banner, remote source port, connection number, or seen count by default
-- malformed input must not cause unsafe output
-
-### Phase 2 done when
-
-Tests demonstrate that representative IPv4, IPv6, private-address, malformed, and unexpected inputs produce safe public `NoiseEvent` values or are deliberately omitted.
+The subscriber also applies the configured sensor allowlist before events enter public state.
 
 ## Phase 3 — Live TCPNoise integration
 
-Noise Observatory will subscribe **directly to NATS**. There is no intermediate ingestion API in the MVP.
+Status: **complete**.
 
 Architecture:
 
@@ -117,46 +115,32 @@ NoiseEventSanitizer
       v
 NoiseEventStore
       |
-      +--> Razor Pages
-      +--> aggregate calculations
+      v
+Razor Pages
 ```
 
-Requirements:
+Implemented behavior:
 
-- use a hosted background service/subscriber
-- reconnect cleanly after NATS interruptions
-- cancellation must stop the subscriber promptly
-- malformed events should be logged and skipped rather than crash the service
-- event ingestion must not block HTTP rendering
-- burst traffic must remain bounded in memory
-- only sanitized/public event objects enter the recent-event store
-- keep NATS private; the web application should not expose broker access
-
-### Phase 3 done when
-
-Live TCPNoise activity appears on the page and disconnect/reconnect testing does not require restarting the app.
+- direct NATS subscription through a hosted background service
+- configurable NATS URL and subject
+- cancellation-aware subscription
+- malformed JSON is logged and skipped
+- private NATS remains separate from public HTTP access
+- sanitization happens before events enter the public event store
+- public rendering does not depend synchronously on NATS availability
 
 ## Phase 4 — Bounded event store, aggregation, and noise weather
 
-Replace fake snapshot generation with a singleton bounded event store.
+Status: **complete enough for the MVP**.
 
-Suggested interface:
+Current store behavior:
 
-```text
-INoiseEventStore
-- Add(NoiseEvent event)
-- GetSnapshot()
-```
-
-Initial useful aggregates:
-
+- singleton bounded in-memory store
+- maximum retained event count is bounded
+- recent public sample is bounded
 - 5-minute event count
 - 1-hour event count
-- per-sensor counts
-- top destination ports
-- optional protocol/IP-family counts later if useful
-
-Define a simple noise-level calculation. Keep thresholds obvious and configurable rather than pretending the labels are scientific.
+- deterministic noise/weather labels
 
 Current vocabulary:
 
@@ -168,36 +152,46 @@ Heavy Rain
 Botnet Thunderstorm
 ```
 
-The underlying event-rate thresholds should remain deterministic.
+Known limitation: recent-window aggregates are currently calculated from the bounded retained event queue. If traffic exceeds the retained capacity within an aggregate window, the longer-window count can undercount. A future improvement should keep bounded rolling aggregate counters separately from the recent-event sample.
 
 ## Phase 5 — Deployment
 
-Package for the same lightweight Linux/Docker environment used by the surrounding projects.
+Status: **complete**.
 
-Deployment requirements:
+Implemented:
 
 - Dockerfile
-- health endpoint
-- configuration through environment/appsettings
-- NATS server/subject through configuration rather than source constants
+- `/health` endpoint
+- configuration through appsettings/environment variables
+- NATS server/subject outside source constants
 - bounded memory behavior
 - no required external static assets
-- DN42 endpoint
-- Yggdrasil endpoint
-- clearnet endpoint only if desired
-- appropriate reverse-proxy configuration
+- clearnet deployment
+- DN42 deployment with TLS
+- Yggdrasil deployment
+- nginx reverse proxies
 
-Verify the site from a client that has DN42/Yggdrasil connectivity but no usable clearnet asset access.
+Current network endpoints:
+
+```text
+https://noise.kgivler.com/
+https://noise.joyfulreaper.dn42/
+http://noise.ygg.kgivler.com/
+```
+
+The Yggdrasil deployment uses a dedicated address from ScopeCreep's routed Yggdrasil subnet and a small systemd unit to restore that service address before nginx starts.
 
 ## Phase 6 — Nice-to-haves
 
-Only after the MVP is stable:
+Only after the MVP remains stable:
 
+- rolling aggregate counters independent of the recent-event buffer
 - tiny historical charts using bounded aggregate buckets
 - plain-text `/status.txt`
 - JSON snapshot endpoint containing sanitized data only
 - RSS/Atom-ish recent-noise feed if amusing/useful
 - sensor-specific pages
+- friendlier public sensor display-name mapping
 - public uptime/last-event indicators
 - integration with the existing Internet Noise FM idea
 
@@ -208,32 +202,23 @@ Avoid adding a database, SPA framework, authentication system, geolocation pipel
 Highest-value automated tests:
 
 1. source-address sanitization
-2. private/non-public address handling
+2. DN42/Yggdrasil overlay-address handling
 3. malformed raw event handling
-4. approved sensor-name mapping
-5. bounded-buffer behavior
-6. noise-level threshold calculation
-7. snapshot aggregation
+4. sensor allowlist behavior
+5. banner sanitization and truncation
+6. bounded-buffer behavior
+7. noise-level threshold calculation
+8. snapshot aggregation
 
-## Open decisions
+## Open decisions / follow-up questions
 
-These do not block the next slice:
+These do not block the deployed MVP:
 
-- exact IPv4 masking granularity
-- exact IPv6 masking granularity
 - final public sensor display-name mapping
-- whether short aggregate history should eventually survive restarts
-- whether clearnet deployment is desirable
+- whether short aggregate history should ever survive restarts
+- whether Yggdrasil should eventually use browser-trusted HTTPS in addition to Yggdrasil's encrypted transport
+- whether to expose a sanitized machine-readable status endpoint beyond `/health`
 
-## Next coding slice
+## Next useful coding slice
 
-Do only this before touching NATS:
-
-1. add `Messaging/TcpNoiseEventEnvelope.cs` matching the current TCPNoise event contract
-2. add `Services/NoiseEventSanitizer.cs`
-3. make the sanitizer map raw events to public `NoiseEvent`
-4. implement deterministic IPv4 and IPv6 masking
-5. reject or generically label non-public source addresses
-6. add focused tests for sanitization
-
-Stop there. Once the raw-to-public boundary is trustworthy, wire the NATS subscriber into it.
+The highest-value follow-up is to separate rolling aggregate counts from the bounded recent-event queue. That preserves accurate 5-minute/hour counts during bursts while keeping public recent-event memory strictly bounded.
