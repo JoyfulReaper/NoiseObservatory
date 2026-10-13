@@ -72,25 +72,58 @@ Before display:
 
 This policy does **not** permit publishing arbitrary captured payload data. `Payload`, request bodies, headers, credentials, or other raw captured application data remain non-public.
 
+## Public snapshot API
+
+`GET /api/snapshot` is a public machine-readable view of the same sanitized state used by the Razor page.
+
+It may contain only the public `NoiseSnapshot` model and its already-sanitized `NoiseEvent` values. Raw TCPNoise transport objects must never be serialized directly by this endpoint.
+
+The snapshot API therefore must not expose:
+
+- raw payload fields
+- complete source addresses
+- remote/source ports
+- connection numbers
+- fields rejected by the sanitizer
+- access to NATS or private broker configuration
+
+The response is marked `Cache-Control: no-store` so intermediary/browser caching is not intentionally encouraged for this changing telemetry view.
+
+The current I2P deployment uses this endpoint as its upstream data source. The I2P instance runs in remote snapshot mode and receives only this already-sanitized representation; it does not connect to the private NATS broker and does not receive the raw TCPNoise event envelope.
+
+## Remote snapshot mirrors
+
+A remote snapshot instance is a public-state mirror, not a second sanitization boundary.
+
+Only a trusted Observatory snapshot endpoint that already follows these public-data rules should be configured as a mirror upstream. A mirror must not be pointed at a raw telemetry endpoint or used as a reason to weaken the direct/source sanitizer.
+
+The mirror keeps only the last successfully fetched `NoiseSnapshot` in memory. If polling fails, it may continue serving that last sanitized snapshot until a later refresh succeeds.
+
 ## Data retention
 
-The MVP retains only bounded in-memory recent events and bounded derived state.
+The direct/source MVP retains only bounded in-memory recent events and bounded derived state.
 
-It does not create a permanent public history of source activity. State resets when the application restarts.
+It does not create a permanent public history of source activity. Source state resets when the direct/source application restarts.
+
+Remote snapshot instances also keep only in-memory public state. They start empty until the first successful poll and then retain only the most recently fetched sanitized snapshot.
 
 If persistent history is added later, retention limits and the privacy impact must be deliberately reviewed first.
 
-## External enrichment
+## External enrichment and dependencies
 
 Do not send visitor or source addresses to third-party geolocation, reputation, analytics, or enrichment APIs by default.
 
-Besides privacy concerns, Noise Observatory should remain useful from DN42/Yggdrasil without depending on clearnet services.
+Besides privacy concerns, Noise Observatory should remain useful to clients on DN42, Yggdrasil, and I2P without requiring those clients to access clearnet services or third-party frontend resources.
+
+The current I2P gateway does make an outbound HTTPS request to the clearnet Observatory's sanitized `/api/snapshot` endpoint. That is an intentional server-side deployment dependency; it does not send I2P visitor information to the snapshot source and does not grant the gateway access to raw NATS data.
 
 ## Logging
 
 Application logs should avoid reintroducing data that was intentionally removed from the public model.
 
 Errors may need operational context, but do not casually log payloads, secrets, or complete source information at normal log levels.
+
+Remote snapshot logging should record operational failures without dumping full response bodies or introducing raw data into logs.
 
 ## Principle
 
