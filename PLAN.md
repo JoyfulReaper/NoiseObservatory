@@ -11,8 +11,8 @@ A successful first release displays a small public page containing:
 - a bounded recent-event feed
 - sanitized source information
 - destination ports and approved sensor names
-- no dependency on external CDNs or clearnet APIs
-- direct live ingestion from TCPNoise through private NATS
+- no dependency on external CDNs or frontend assets
+- direct live ingestion from TCPNoise through private NATS for the source instance
 
 The MVP does not require persistent history.
 
@@ -25,8 +25,11 @@ The Observatory is currently live over:
 - clearnet: `https://noise.kgivler.com/`
 - DN42: `https://noise.joyfulreaper.dn42/`
 - Yggdrasil: `http://noise.ygg.kgivler.com/`
+- I2P: `http://noise.joyfulreaper.i2p/`
 
 The Yggdrasil endpoint uses dedicated routed address `301:6610:cf9f:bae9::80`.
+
+Clearnet, DN42, and Yggdrasil are served by the direct/source instance. I2P is served by a second Noise Observatory instance on `i2p-gw` running in remote snapshot mode. That instance polls the sanitized public snapshot from the source deployment and does not connect to NATS.
 
 ## Phase 1 — Page shape with fake data
 
@@ -92,7 +95,7 @@ The subscriber also applies the configured sensor allowlist before events enter 
 
 Status: **complete**.
 
-Architecture:
+Direct/source architecture:
 
 ```text
 TCPNoise sensors
@@ -116,7 +119,7 @@ NoiseEventSanitizer
 NoiseEventStore
       |
       v
-Razor Pages
+Razor Pages / sanitized snapshot API
 ```
 
 Implemented behavior:
@@ -154,7 +157,7 @@ Botnet Thunderstorm
 
 Known limitation: recent-window aggregates are currently calculated from the bounded retained event queue. If traffic exceeds the retained capacity within an aggregate window, the longer-window count can undercount. A future improvement should keep bounded rolling aggregate counters separately from the recent-event sample.
 
-## Phase 5 — Deployment
+## Phase 5 — Initial deployment
 
 Status: **complete**.
 
@@ -171,24 +174,70 @@ Implemented:
 - Yggdrasil deployment
 - nginx reverse proxies
 
+The Yggdrasil deployment uses a dedicated address from ScopeCreep's routed Yggdrasil subnet and a small systemd unit to restore that service address before nginx starts.
+
+## Phase 6 — Sanitized snapshot mirroring and I2P
+
+Status: **complete**.
+
+A concrete deployment need arose for a frontend that cannot reach the private NATS network directly. Rather than exposing NATS or extending the private VPN to the I2P gateway, Noise Observatory gained a deliberately narrow public snapshot path.
+
+Implemented:
+
+- `GET /api/snapshot` returning only the already-sanitized public `NoiseSnapshot`
+- `Cache-Control: no-store` on the snapshot response
+- `INoiseSnapshotProvider` abstraction shared by direct and mirror modes
+- optional `RemoteSnapshot:Url` configuration
+- `RemoteSnapshotPoller` background service using `HttpClient`
+- bounded in-memory `RemoteSnapshotCache`
+- remote mode skips NATS subscriber registration entirely
+- last successful sanitized snapshot remains available if a later poll fails
+- I2P mirror deployed on `i2p-gw`
+- local I2P HTTP server tunnel to the mirror
+- `noise.joyfulreaper.i2p` registered and linked from the I2P landing page
+
+Current deployed path:
+
+```text
+TCPNoise sensors
+      |
+      v
+     NATS
+      |
+      v
+Noise Observatory direct/source instance
+      |
+      +--> clearnet
+      +--> DN42
+      +--> Yggdrasil
+      |
+      +--> HTTPS /api/snapshot (sanitized only)
+                    |
+                    v
+          Noise Observatory remote mirror
+                    |
+                    v
+                   I2P
+```
+
+The I2P mirror currently polls `https://noise.kgivler.com/api/snapshot`. I2P clients do not need clearnet access themselves; the gateway performs the upstream HTTPS fetch.
+
 Current network endpoints:
 
 ```text
 https://noise.kgivler.com/
 https://noise.joyfulreaper.dn42/
 http://noise.ygg.kgivler.com/
+http://noise.joyfulreaper.i2p/
 ```
 
-The Yggdrasil deployment uses a dedicated address from ScopeCreep's routed Yggdrasil subnet and a small systemd unit to restore that service address before nginx starts.
+## Phase 7 — Nice-to-haves
 
-## Phase 6 — Nice-to-haves
-
-Only after the MVP remains stable:
+Only after the deployed service remains stable:
 
 - rolling aggregate counters independent of the recent-event buffer
 - tiny historical charts using bounded aggregate buckets
 - plain-text `/status.txt`
-- JSON snapshot endpoint containing sanitized data only
 - RSS/Atom-ish recent-noise feed if amusing/useful
 - sensor-specific pages
 - friendlier public sensor display-name mapping
@@ -209,6 +258,8 @@ Highest-value automated tests:
 6. bounded-buffer behavior
 7. noise-level threshold calculation
 8. snapshot aggregation
+9. remote snapshot polling/cache behavior
+10. confirmation that remote mode does not register the NATS subscriber
 
 ## Open decisions / follow-up questions
 
@@ -217,8 +268,8 @@ These do not block the deployed MVP:
 - final public sensor display-name mapping
 - whether short aggregate history should ever survive restarts
 - whether Yggdrasil should eventually use browser-trusted HTTPS in addition to Yggdrasil's encrypted transport
-- whether to expose a sanitized machine-readable status endpoint beyond `/health`
+- whether additional sanitized machine-readable formats beyond `/api/snapshot` would ever be useful
 
 ## Next useful coding slice
 
-The highest-value follow-up is to separate rolling aggregate counts from the bounded recent-event queue. That preserves accurate 5-minute/hour counts during bursts while keeping public recent-event memory strictly bounded.
+The highest-value follow-up remains separating rolling aggregate counts from the bounded recent-event queue. That preserves accurate 5-minute/hour counts during bursts while keeping public recent-event memory strictly bounded.
