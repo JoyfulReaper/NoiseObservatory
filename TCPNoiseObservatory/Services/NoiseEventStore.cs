@@ -37,6 +37,7 @@ public sealed class NoiseEventStore : INoiseEventStore, INoiseSnapshotProvider
 
         var recentEvents = events
             .OrderByDescending(e => e.Timestamp)
+            .ThenByDescending(e => e.SeenCount)
             .Take(MaxRecentEvents)
             .ToArray();
 
