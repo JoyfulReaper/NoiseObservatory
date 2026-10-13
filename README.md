@@ -4,17 +4,20 @@ Noise Observatory is a small public-facing view of the background Internet noise
 
 The goal is not to build another security dashboard. It is a lightweight, read-only observatory that turns unsolicited connection attempts into useful aggregate statistics, recent sanitized activity, and a little bit of personality.
 
-It is designed to work cleanly over the normal Internet as well as alternative networks such as DN42 and Yggdrasil without depending on clearnet-only assets.
+It is designed to work cleanly over the normal Internet as well as alternative networks such as DN42, Yggdrasil, and I2P without depending on third-party frontend assets.
 
 ## Live endpoints
 
-The same Observatory is currently available through three networks:
+Noise Observatory is currently reachable through four networks:
 
 - Clearnet: `https://noise.kgivler.com/`
 - DN42: `https://noise.joyfulreaper.dn42/`
 - Yggdrasil: `http://noise.ygg.kgivler.com/`
+- I2P: `http://noise.joyfulreaper.i2p/`
 
 The Yggdrasil service has the dedicated routed address `301:6610:cf9f:bae9::80`.
+
+The clearnet, DN42, and Yggdrasil endpoints are served by the direct/source instance. The I2P endpoint is a second Observatory instance that polls the source instance's sanitized snapshot API and serves that public state locally inside I2P. I2P clients therefore do not need clearnet access themselves, although the I2P gateway currently uses clearnet HTTPS to refresh its sanitized snapshot.
 
 ## What it shows
 
@@ -57,11 +60,17 @@ The application does not expose:
 
 IPv4 and IPv6 source addresses are deterministically masked before they enter public-facing state. Banner text, when present and marked as sent by TCPNoise, has control characters removed/replaced and is capped before display.
 
+The public `GET /api/snapshot` endpoint returns only the already-sanitized `NoiseSnapshot` model used by the page. It does not expose the raw TCPNoise transport object or provide access to NATS.
+
 See [PRIVACY.md](PRIVACY.md) for the working data-exposure rules.
 
 ## Architecture
 
-Noise Observatory consumes TCPNoise events directly from the existing private NATS event bus. There is no intermediate ingestion API in the MVP.
+Noise Observatory now supports two operating modes.
+
+### Direct/source mode
+
+With `RemoteSnapshot:Url` unset or blank, the application subscribes directly to the existing private NATS event bus:
 
 ```text
 TCPNoise sensors
@@ -73,7 +82,7 @@ TCPNoise sensors
       NATS
        |
        v
-Noise Observatory hosted subscriber
+Noise Observatory direct/source instance
        |
        v
 raw TCPNoise event DTO
@@ -84,15 +93,15 @@ sanitizer / public mapping
        v
 bounded in-memory public event store
        |
-       v
-ASP.NET Core Razor Pages
+       +--> Razor Pages
+       |      +--> clearnet
+       |      +--> DN42
+       |      +--> Yggdrasil
        |
-       +--> clearnet
-       +--> DN42
-       +--> Yggdrasil
+       +--> /api/snapshot (sanitized only)
 ```
 
-The public Razor page never receives the raw TCPNoise transport object. Raw fields are mapped into a deliberately limited public `NoiseEvent` before entering public-facing state.
+The public Razor page and snapshot API never receive the raw TCPNoise transport object. Raw fields are mapped into a deliberately limited public `NoiseEvent` before entering public-facing state.
 
 TCPNoise publishes live events on:
 
@@ -102,7 +111,44 @@ tcpnoise.connection
 
 The raw event includes transport data such as sensor, listen port, IP version, remote address/port, seen count, banner information, and bounded payload data. Noise Observatory intentionally discards fields it does not need for public display.
 
-The MVP intentionally has no database. Recent state is bounded in memory and resets when the application restarts.
+### Remote snapshot mode
+
+When `RemoteSnapshot:Url` is configured, the application does not register the NATS subscriber. Instead it periodically fetches another Observatory instance's sanitized `NoiseSnapshot`, keeps the last successful snapshot in memory, and serves the normal Razor page and `/api/snapshot` from that cache.
+
+The deployed I2P path is:
+
+```text
+Noise Observatory direct/source instance
+       |
+       v
+HTTPS /api/snapshot
+       |
+       v
+Noise Observatory remote snapshot instance on i2p-gw
+       |
+       v
+I2P HTTP server tunnel
+       |
+       v
+noise.joyfulreaper.i2p
+```
+
+The I2P instance therefore has no NATS access and never receives the raw TCPNoise event contract.
+
+Both modes intentionally have no database. Recent source state is bounded in memory and resets when the direct/source application restarts. A remote instance starts empty until its first successful poll and keeps its last successfully fetched sanitized snapshot if a later poll fails.
+
+## Configuration
+
+Direct/source mode uses the `TcpNoise` configuration section, including the NATS URL, subject, and public sensor allowlist.
+
+Remote snapshot mode is enabled by setting `RemoteSnapshot:Url` (or the corresponding environment variable `RemoteSnapshot__Url`). `RemoteSnapshot:PollIntervalSeconds` controls the polling interval and defaults to 10 seconds.
+
+Example remote-mode environment variables:
+
+```text
+RemoteSnapshot__Url=https://noise.kgivler.com/api/snapshot
+RemoteSnapshot__PollIntervalSeconds=10
+```
 
 ## Technology
 
@@ -111,15 +157,17 @@ Current stack:
 - .NET 10
 - ASP.NET Core Razor Pages
 - NATS for direct TCPNoise event consumption
+- `HttpClient` polling for optional remote snapshot mirrors
 - bounded in-memory state
 - Docker deployment
-- nginx reverse proxies
+- nginx reverse proxies where appropriate
+- Java I2P HTTP server tunnel for the I2P mirror
 - local/self-hosted CSS and other assets
 - no frontend framework
 
 ## Development status
 
-The MVP is live and consuming real TCPNoise events. The raw-event/public-event privacy boundary, NATS subscriber, bounded event store, weather labels, refresh controls, Docker packaging, health endpoint, and clearnet/DN42/Yggdrasil deployments are working.
+The MVP is live and consuming real TCPNoise events. The raw-event/public-event privacy boundary, NATS subscriber, bounded event store, weather labels, refresh controls, Docker packaging, health endpoint, sanitized snapshot endpoint, remote snapshot mode, and clearnet/DN42/Yggdrasil/I2P deployments are working.
 
 Known follow-up work includes improving aggregate accounting so high event rates cannot undercount longer windows when the bounded recent-event store rolls over, refining public sensor display names, and adding tests around privacy-sensitive behavior.
 
