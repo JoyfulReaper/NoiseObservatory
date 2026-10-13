@@ -8,9 +8,32 @@ builder.Services.AddRazorPages();
 builder.Services.Configure<TcpNoiseOptions>(
     builder.Configuration.GetSection("TcpNoise"));
 
-builder.Services.AddSingleton<INoiseEventStore, NoiseEventStore>();
-builder.Services.AddSingleton<NoiseEventSanitizer>();
-builder.Services.AddHostedService<TcpNoiseSubscriber>();
+builder.Services.Configure<RemoteSnapshotOptions>(
+    builder.Configuration.GetSection("RemoteSnapshot"));
+
+var remoteSnapshotUrl = builder.Configuration["RemoteSnapshot:Url"];
+
+if (string.IsNullOrWhiteSpace(remoteSnapshotUrl))
+{
+    builder.Services.AddSingleton<NoiseEventStore>();
+    builder.Services.AddSingleton<INoiseEventStore>(sp =>
+        sp.GetRequiredService<NoiseEventStore>());
+    builder.Services.AddSingleton<INoiseSnapshotProvider>(sp =>
+        sp.GetRequiredService<NoiseEventStore>());
+    builder.Services.AddSingleton<NoiseEventSanitizer>();
+    builder.Services.AddHostedService<TcpNoiseSubscriber>();
+}
+else
+{
+    builder.Services.AddSingleton<RemoteSnapshotCache>();
+    builder.Services.AddSingleton<INoiseSnapshotProvider>(sp =>
+        sp.GetRequiredService<RemoteSnapshotCache>());
+    builder.Services.AddHttpClient("remote-snapshot", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
+    });
+    builder.Services.AddHostedService<RemoteSnapshotPoller>();
+}
 
 var app = builder.Build();
 
@@ -22,9 +45,10 @@ app.MapGet("/health", () => Results.Ok(new
     service = "tcpnoise-observatory"
 }));
 
-app.MapGet("/api/snapshot", (INoiseEventStore store) =>
+app.MapGet("/api/snapshot", (HttpContext context, INoiseSnapshotProvider snapshots) =>
 {
-    return Results.Ok(store.GetSnapshot());
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(snapshots.GetSnapshot());
 });
 
 app.MapRazorPages();

@@ -2,7 +2,7 @@ using TCPNoiseObservatory.Models;
 
 namespace TCPNoiseObservatory.Services;
 
-public sealed class NoiseEventStore : INoiseEventStore
+public sealed class NoiseEventStore : INoiseEventStore, INoiseSnapshotProvider
 {
     private const int MaxEvents = 5000;
     private const int MaxRecentEvents = 100;
