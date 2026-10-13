@@ -22,6 +22,11 @@ app.MapGet("/health", () => Results.Ok(new
     service = "tcpnoise-observatory"
 }));
 
+app.MapGet("/api/snapshot", (INoiseEventStore store) =>
+{
+    return Results.Ok(store.GetSnapshot());
+});
+
 app.MapRazorPages();
 
 app.Run();
