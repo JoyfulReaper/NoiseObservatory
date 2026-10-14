@@ -143,17 +143,25 @@ Current store behavior:
 - recent public sample is bounded
 - 5-minute event count
 - 1-hour event count
-- deterministic noise/weather labels
+- deterministic noise/weather classification
+- stable machine-readable noise level code in the public snapshot
+- human-facing display label derived from the same classification
+- recent `eventsPerMinute` derived from the five-minute count
 
-Current vocabulary:
+Current thresholds and vocabulary:
 
 ```text
-Quiet
-Drizzle
-Rain
-Heavy Rain
-Botnet Thunderstorm
+0-34    quiet                / Quiet
+35-49   drizzle              / Drizzle
+50-174  rain                 / Rain
+175-324 heavy_rain           / Heavy Rain
+325-499 botnet_thunderstorm  / Botnet Thunderstorm
+500+    botnet_hurricane     / Botnet Hurricane!
 ```
+
+The Razor page and `/api/snapshot` use the same centralized classification so machine consumers do not need to parse display text. The public rate is derived as `EventsLastFiveMinutes / 5.0`.
+
+Hysteresis is not currently implemented. If real deployments show condition flapping near thresholds, add it deliberately rather than embedding separate thresholds in the UI or API.
 
 Known limitation: recent-window aggregates are currently calculated from the bounded retained event queue. If traffic exceeds the retained capacity within an aggregate window, the longer-window count can undercount. A future improvement should keep bounded rolling aggregate counters separately from the recent-event sample.
 
@@ -236,6 +244,7 @@ http://noise.joyfulreaper.i2p/
 Only after the deployed service remains stable:
 
 - rolling aggregate counters independent of the recent-event buffer
+- hysteresis for weather-level transitions if threshold flapping is observed
 - tiny historical charts using bounded aggregate buckets
 - plain-text `/status.txt`
 - RSS/Atom-ish recent-noise feed if amusing/useful
@@ -256,8 +265,8 @@ Highest-value automated tests:
 4. sensor allowlist behavior
 5. banner sanitization and truncation
 6. bounded-buffer behavior
-7. noise-level threshold calculation
-8. snapshot aggregation
+7. noise-level threshold calculation and stable machine/display mappings
+8. snapshot aggregation and serialization contract
 9. remote snapshot polling/cache behavior
 10. confirmation that remote mode does not register the NATS subscriber
 

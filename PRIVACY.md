@@ -15,7 +15,8 @@ The following are appropriate for public display:
 - aggregate counts
 - TCPNoise `SeenCount`
 - coarse/sanitized source-network information
-- derived noise/weather labels
+- derived noise/weather machine level and display label
+- derived recent event rate
 - whether TCPNoise reports that a banner was sent
 - sanitized, length-limited banner text
 
@@ -77,6 +78,8 @@ This policy does **not** permit publishing arbitrary captured payload data. `Pay
 `GET /api/snapshot` is a public machine-readable view of the same sanitized state used by the Razor page.
 
 It may contain only the public `NoiseSnapshot` model and its already-sanitized `NoiseEvent` values. Raw TCPNoise transport objects must never be serialized directly by this endpoint.
+
+The snapshot may include aggregate-derived values such as a stable noise/weather level code, its human-facing display label, and a recent events-per-minute rate calculated from the public five-minute count. These values do not expose any additional raw event fields.
 
 The snapshot API therefore must not expose:
 

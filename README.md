@@ -22,11 +22,21 @@ The clearnet, DN42, and Yggdrasil endpoints are served by the direct/source inst
 ## Public snapshot API
 
 `GET /api/snapshot` returns the existing sanitized snapshot as camelCase JSON with
-`Cache-Control: no-store`. The kgivler.com Lab reads this endpoint directly.
-Endpoint-scoped CORS permits GET only from `https://kgivler.com` and
-`https://www.kgivler.com`, without credentials or additional request headers.
-Other routes have no CORS grant. Server-to-server snapshot polling, including
-the I2P remote mirror, is unaffected.
+`Cache-Control: no-store`. In addition to the existing recent-window counts and
+sanitized recent events, the snapshot includes derived aggregate fields intended
+for machine consumers:
+
+- `level`: stable condition code such as `quiet`, `drizzle`, `rain`, `heavy_rain`, `botnet_thunderstorm`, or `botnet_hurricane`
+- `levelDisplay`: the human-facing condition label used by the page
+- `eventsPerMinute`: the current five-minute event count divided by five
+
+These values are derived only from public aggregate counts and do not add raw
+TCPNoise data to the public contract.
+
+The kgivler.com Lab reads this endpoint directly. Endpoint-scoped CORS permits
+GET only from `https://kgivler.com` and `https://www.kgivler.com`, without
+credentials or additional request headers. Other routes have no CORS grant.
+Server-to-server snapshot polling, including the I2P remote mirror, is unaffected.
 
 ## What it shows
 
@@ -177,6 +187,8 @@ Current stack:
 ## Development status
 
 The MVP is live and consuming real TCPNoise events. The raw-event/public-event privacy boundary, NATS subscriber, bounded event store, weather labels, refresh controls, Docker packaging, health endpoint, sanitized snapshot endpoint, remote snapshot mode, and clearnet/DN42/Yggdrasil/I2P deployments are working.
+
+The noise/weather classification is centralized and the public snapshot exposes both a stable machine-readable condition code and the human display label, plus the recent five-minute rate as events per minute. Hysteresis is not currently applied; condition changes are deterministic from the current five-minute count.
 
 Known follow-up work includes improving aggregate accounting so high event rates cannot undercount longer windows when the bounded recent-event store rolls over, refining public sensor display names, and adding tests around privacy-sensitive behavior.
 

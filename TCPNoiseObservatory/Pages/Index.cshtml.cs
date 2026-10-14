@@ -15,15 +15,7 @@ public sealed class IndexModel : PageModel
 
     public NoiseSnapshot Snapshot { get; private set; } = default!;
 
-    public string NoiseLevel => Snapshot.EventsLastFiveMinutes switch
-    {
-        < 35 => "Quiet",
-        < 50 => "Drizzle",
-        < 175 => "Rain",
-        < 325 => "Heavy Rain",
-        < 500 => "Botnet Thunderstorm",
-        _ => "Botnet Hurricane!"
-    };
+    public string NoiseLevel => Snapshot.LevelDisplay;
 
     public void OnGet()
     {
