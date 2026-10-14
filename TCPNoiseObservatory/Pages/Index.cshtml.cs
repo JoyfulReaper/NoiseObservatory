@@ -21,7 +21,8 @@ public sealed class IndexModel : PageModel
         < 50 => "Drizzle",
         < 175 => "Rain",
         < 325 => "Heavy Rain",
-        _ => "Botnet Thunderstorm"
+        < 500 => "Botnet Thunderstorm",
+        _ => "Botnet Hurricane!"
     };
 
     public void OnGet()
