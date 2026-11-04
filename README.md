@@ -50,7 +50,8 @@ The current page includes:
 - masked source addresses
 - TCPNoise `SeenCount`
 - whether a banner was sent, with banner text sanitized and length-limited before display
-- manual refresh and optional client-side auto-refresh
+- manual refresh and optional client-side auto-refresh every 30 seconds (the visible countdown uses the same interval)
+- an `/About` page explaining the purpose, weather levels, data flow, and privacy protections
 
 The core page remains server-rendered and useful without JavaScript. Static assets are local/self-hosted.
 
