@@ -198,12 +198,28 @@ public sealed class NoiseEventStoreTests
         }
 
         AssertCounts(store, 15_050, 180_050);
+        Assert.All(store.GetSnapshot().History!.Counts, count => Assert.Equal(3000, count));
         Assert.Same(buckets, GetStorage<Array>(store, "_buckets"));
         Assert.Equal(5000, events.Count);
         var recent = store.GetSnapshot().RecentEvents;
         Assert.Equal(100, recent.Count);
         Assert.Equal(Start.AddSeconds(7199), recent[0].Timestamp);
         Assert.Equal(49UL, recent[0].SeenCount);
+    }
+
+    [Fact]
+    public void MinuteCountSaturatesWhenSummingMultipleSeconds()
+    {
+        var store = new NoiseEventStore(new ManualTimeProvider(Start.AddSeconds(30)));
+        store.Add(Event(Start));
+        var buckets = GetStorage<Array>(store, "_buckets");
+        var index = (int)(Start.UtcTicks / TimeSpan.TicksPerSecond % buckets.Length);
+        var bucket = buckets.GetValue(index)!;
+        bucket.GetType().GetField("Count")!.SetValue(bucket, int.MaxValue);
+        buckets.SetValue(bucket, index);
+        store.Add(Event(Start.AddSeconds(1)));
+
+        Assert.Equal(int.MaxValue, store.GetSnapshot().History!.Counts[59]);
     }
 
     [Fact]
@@ -234,7 +250,7 @@ public sealed class NoiseEventStoreTests
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var json = JsonSerializer.Serialize(store.GetSnapshot(), options);
         using var document = JsonDocument.Parse(json);
-        Assert.Equal(new[] { "eventsLastFiveMinutes", "eventsLastHour", "eventsPerMinute", "level", "levelDisplay", "recentEvents" },
+        Assert.Equal(new[] { "eventsLastFiveMinutes", "eventsLastHour", "eventsPerMinute", "history", "level", "levelDisplay", "recentEvents" },
             document.RootElement.EnumerateObject().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
 
         var cache = new RemoteSnapshotCache();
@@ -246,6 +262,7 @@ public sealed class NoiseEventStoreTests
         Assert.Equal("botnet_hurricane", mirrored.LevelCode);
         Assert.Equal(100, mirrored.RecentEvents.Count);
         Assert.Equal(store.GetSnapshot().RecentEvents, mirrored.RecentEvents);
+        Assert.Equal(store.GetSnapshot().History!.Counts, mirrored.History!.Counts);
     }
 
     [Fact]
@@ -275,6 +292,7 @@ public sealed class NoiseEventStoreTests
                 Assert.InRange(snapshot.EventsLastHour, previous, 40_000);
                 Assert.Equal(snapshot.EventsLastFiveMinutes, snapshot.EventsLastHour);
                 Assert.Equal(Math.Min(snapshot.EventsLastHour, 100), snapshot.RecentEvents.Count);
+                Assert.Equal(snapshot.EventsLastHour, snapshot.History!.Counts.Sum());
                 previous = snapshot.EventsLastHour;
             }
         })).ToArray();
