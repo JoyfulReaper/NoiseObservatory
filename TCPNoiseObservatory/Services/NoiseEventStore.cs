@@ -59,16 +59,28 @@ public sealed class NoiseEventStore : INoiseEventStore, INoiseSnapshotProvider
         NoiseEvent[] events;
         long eventsLastFiveMin = 0;
         long eventsLastHour = 0;
+        var minuteCounts = new int[NoiseHistory.MinuteCount];
+        DateTimeOffset asOf;
 
         lock (_lock)
         {
-            var nowTicks = _timeProvider.GetUtcNow().UtcTicks;
+            asOf = _timeProvider.GetUtcNow();
+            var nowTicks = asOf.UtcTicks;
             var currentSecond = nowTicks / TimeSpan.TicksPerSecond;
+            var firstMinute = currentSecond / 60 - (NoiseHistory.MinuteCount - 1);
             // Exclude the partially overlapping oldest second so expired events
             // cannot count. Events can expire less than one second early.
             var firstSecond = currentSecond + (nowTicks % TimeSpan.TicksPerSecond == 0 ? 0 : 1);
             foreach (var bucket in _buckets)
             {
+                // Reuse the same scan for calendar minutes without changing ingestion.
+                var minuteIndex = bucket.Second / 60 - firstMinute;
+                if (bucket.Second <= currentSecond && minuteIndex >= 0 && minuteIndex < minuteCounts.Length)
+                {
+                    minuteCounts[minuteIndex] = (int)Math.Min(
+                        (long)minuteCounts[minuteIndex] + bucket.Count, int.MaxValue);
+                }
+
                 if (bucket.Second > currentSecond || bucket.Second < firstSecond - HourInSeconds)
                 {
                     continue;
@@ -93,7 +105,10 @@ public sealed class NoiseEventStore : INoiseEventStore, INoiseSnapshotProvider
         return new NoiseSnapshot(
             (int)Math.Min(eventsLastFiveMin, int.MaxValue),
             (int)Math.Min(eventsLastHour, int.MaxValue),
-            recentEvents);
+            recentEvents)
+        {
+            History = new NoiseHistory(asOf, minuteCounts)
+        };
     }
 
     private struct CountBucket

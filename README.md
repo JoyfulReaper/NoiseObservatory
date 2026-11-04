@@ -29,6 +29,10 @@ for machine consumers:
 - `level`: stable condition code such as `quiet`, `drizzle`, `rain`, `heavy_rain`, `botnet_thunderstorm`, or `botnet_hurricane`
 - `levelDisplay`: the human-facing condition label used by the page
 - `eventsPerMinute`: the current five-minute event count divided by five
+- optional `history`: `asOf` (source snapshot time in UTC) and `counts` (exactly 60
+  nonnegative event counts, oldest first). The final count is the current UTC
+  calendar minute; preceding entries cover the previous 59 minutes. Minute starts
+  are derived by rounding `asOf` down to a minute and counting backward.
 
 These values are derived only from public aggregate counts and do not add raw
 TCPNoise data to the public contract.
@@ -44,6 +48,7 @@ The current page includes:
 
 - current derived noise/weather level
 - event counts for the last 5 minutes and last hour
+- a server-rendered 60-minute traffic history graph
 - a bounded recent-event sample
 - approved sensor names
 - destination ports
@@ -77,6 +82,36 @@ volume. Additions update one bucket and snapshots scan a fixed number of buckets
 The existing integer snapshot counts saturate at `int.MaxValue` rather than
 overflowing. Counters and recent events remain in memory and reset when the
 direct/source instance restarts.
+
+### Traffic history graph
+
+The graph shows 60 UTC calendar-minute intervals, oldest on the left and newest
+on the right. Completed minutes cover `[minute start, next minute start)`; the
+striped final bar covers the current, incomplete minute through the source's
+snapshot time. Heights scale to the busiest displayed minute. Hover or keyboard
+focus reveals a bar's interval and count, and an expandable minute-count list is
+available for touch devices and text reading. Rendering and inspection work
+without JavaScript or external chart libraries.
+
+These calendar-minute counts need not sum to the rolling last-hour statistic:
+the graph begins at the start of the minute 59 minutes before the current minute,
+while the statistic looks back one hour from the snapshot time (with the
+sub-second precision limit described above). Each accepted event counts once;
+`SeenCount` is not summed. Zero bars mean no events were recorded in the retained
+buckets, including periods before startup or while the source was unavailable.
+
+History is calculated during the existing bucket scan when a snapshot is read.
+It adds no ingestion work, separate history store, or persistence. Its 60 counts
+use the existing integer saturation behavior. History resets with the source's
+in-memory counters on restart.
+
+Remote mirrors, including I2P, render the same aggregate history using only
+`/api/snapshot`. They preserve its source `asOf` timestamp and retain the last
+successful history if polling fails. All existing snapshot fields remain intact;
+older consumers can ignore the optional addition. Missing or null history from
+an older source displays an unavailable message while statistics and recent
+events remain usable. Invalid history lengths or negative counts cause a poll
+to fail and leave the last successful snapshot in place.
 
 ## Non-goals
 

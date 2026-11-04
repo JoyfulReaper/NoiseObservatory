@@ -7,6 +7,9 @@ public sealed record NoiseSnapshot(
     int EventsLastHour,
     IReadOnlyList<NoiseEvent> RecentEvents)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NoiseHistory? History { get; init; }
+
     [JsonIgnore]
     public NoiseLevel CurrentNoiseLevel => NoiseLevelClassifier.FromFiveMinuteEventCount(EventsLastFiveMinutes);
 

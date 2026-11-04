@@ -81,6 +81,15 @@ It may contain only the public `NoiseSnapshot` model and its already-sanitized `
 
 The snapshot may include aggregate-derived values such as a stable noise/weather level code, its human-facing display label, and a recent events-per-minute rate calculated from the public five-minute count. These values do not expose any additional raw event fields.
 
+Optional `history` contains only a source snapshot timestamp (`asOf`) and 60
+calendar-minute aggregate event counts (`counts`), ordered oldest first. It makes
+short-term traffic changes visible without adding source identifiers, sensor
+breakdowns, raw events, or topology information. Counts reuse the bounded
+in-memory rolling buckets after sanitization; no separate event history or
+persistent storage is added. History resets when the direct/source instance
+restarts. Remote mirrors receive and retain only these sanitized aggregate values
+as part of their last successful snapshot.
+
 The snapshot API therefore must not expose:
 
 - raw payload fields

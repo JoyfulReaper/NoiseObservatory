@@ -185,9 +185,9 @@ inclusive at whole-second snapshot times. Existing public integer counts saturat
 at `int.MaxValue` instead of overflowing.
 
 Counters remain in memory and reset when the direct/source instance restarts.
-No public snapshot fields or remote mirror behavior changed. The same buckets
-could support a future last-60-minutes graph, but no graph or graph API is
-implemented.
+The independent-counter change preserved all public snapshot fields and remote
+mirror behavior. The same buckets now also provide the calendar-minute history
+described below.
 
 ## Phase 5 — Initial deployment
 
@@ -263,12 +263,46 @@ http://noise.ygg.kgivler.com/
 http://noise.joyfulreaper.i2p/
 ```
 
-## Phase 7 — Nice-to-haves
+## Phase 7 — 60-minute traffic history
+
+Status: **implemented and tested; deployment is separate**.
+
+Implemented:
+
+- reuse the existing 3,601 one-second buckets to derive 60 UTC calendar-minute
+  counts in the snapshot scan, with no change to event ingestion or storage
+- preserve thread safety through the existing store lock
+- add optional snapshot `history` containing the source `asOf` timestamp and
+  exactly 60 nonnegative `counts`, oldest first
+- render a green-on-dark Razor/CSS bar chart with relative scaling, zero-period
+  handling, keyboard-focus count inspection, and an expandable text count list
+- distinguish the incomplete current minute using stripes, a dashed outline,
+  and text; label the time range and source snapshot time in UTC
+- support remote/I2P snapshots without additional NATS access or endpoints;
+  missing/null history renders an unavailable message, and failed polling keeps
+  the last successful snapshot and its original time
+- validate history length and nonnegative counts before retaining mirror state
+- cover chronological ordering, distributed/high-volume events, zeros, minute
+  transitions, UTC midnight, late/expired/future timestamps, ring reuse, concurrent
+  snapshot consistency, JSON round-trips, and rendering with/without history
+
+The chart spans the current minute and its 59 predecessors. Completed bars are
+half-open calendar intervals; the current bar ends at source snapshot time. This
+differs from the rolling one-hour statistic, whose oldest boundary is one hour
+before snapshot time, with the existing sub-second precision limit. The chart's
+sum is not presented as the rolling one-hour count. Each event still counts once,
+not by `SeenCount`, and the recent-event sample remains unchanged.
+
+No persistent history, new background workers, frontend dependencies, or raw
+event fields are added. Counts saturate at `int.MaxValue` and reset on source
+restart. Zero intervals reflect the absence of retained events, including before
+startup or during ingestion outages; the graph does not track source uptime.
+
+## Phase 8 — Nice-to-haves
 
 Only after the deployed service remains stable:
 
 - hysteresis for weather-level transitions if threshold flapping is observed
-- tiny historical charts using bounded aggregate buckets
 - plain-text `/status.txt`
 - RSS/Atom-ish recent-noise feed if amusing/useful
 - sensor-specific pages
@@ -304,7 +338,6 @@ These do not block the deployed MVP:
 
 ## Next useful coding slice
 
-Independent rolling counters are complete and covered by deterministic boundary,
-expiration, out-of-order, high-volume, concurrency, and snapshot compatibility
-tests. A future small slice could refine public sensor display names. Historical
-charts remain optional follow-up work and can reuse the existing bounded buckets.
+Independent rolling counters and the bounded 60-minute history graph are
+implemented and tested. A future small slice could refine public sensor display
+names, or add weather-level hysteresis if threshold flapping is observed.

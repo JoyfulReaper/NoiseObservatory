@@ -60,6 +60,79 @@
             </article>
         </section>
 
+        <section class="history-panel" aria-labelledby="history-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Traffic over time</p>
+                    <h2 id="history-title">60-minute history</h2>
+                </div>
+                <span class="privacy-note">Events / calendar minute</span>
+            </div>
+            @if (Model.Snapshot.History is not { } history)
+            {
+                <p class="history-unavailable">History is not available in this snapshot yet.</p>
+            }
+            else
+            {
+                var peak = history.Counts.Max();
+                var firstMinute = history.FirstMinute;
+                var currentMinute = firstMinute.AddMinutes(59);
+                <figure class="traffic-history" aria-describedby="history-note">
+                    <figcaption class="history-caption">
+                        @firstMinute.ToString("MMM dd, HH:mm") &ndash; @history.AsOf.ToString("MMM dd, HH:mm:ss") UTC
+                    </figcaption>
+                    <div class="history-scale" aria-hidden="true">
+                        <span>Events / minute</span>
+                        <span>Peak @peak.ToString("N0")</span>
+                    </div>
+                    <div class="history-plot">
+                        <span class="history-hint" aria-hidden="true">Hover or focus a bar to inspect</span>
+                        <ol class="history-bars" aria-label="Minute event counts, oldest first">
+                            @for (var i = 0; i < history.Counts.Count; i++)
+                            {
+                                var minute = firstMinute.AddMinutes(i);
+                                var count = history.Counts[i];
+                                var isCurrent = i == 59;
+                                var height = peak == 0 ? "0" : (100d * count / peak).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                                var endTime = isCurrent ? history.AsOf.ToString("HH:mm:ss") : minute.AddMinutes(1).ToString("HH:mm");
+                                var label = $"{minute:HH:mm}–{endTime} UTC: {count:N0} events{(isCurrent ? " (current minute, partial)" : "")}";
+                                <li class="history-minute @(isCurrent ? "is-current" : "") @(count == 0 ? "is-zero" : "")"
+                                    tabindex="0" aria-label="@label">
+                                    <span class="history-fill" style="height: @(height)%" aria-hidden="true"></span>
+                                    <span class="history-tooltip" aria-hidden="true">@label</span>
+                                </li>
+                            }
+                        </ol>
+                    </div>
+                    <div class="history-axis" aria-hidden="true">
+                        <span>@firstMinute.ToString("HH:mm")</span>
+                        <span>@firstMinute.AddMinutes(30).ToString("HH:mm")</span>
+                        <span>@currentMinute.ToString("HH:mm") <span class="history-partial">partial</span></span>
+                    </div>
+                    @if (peak == 0)
+                    {
+                        <p class="history-empty">No events recorded in these minutes.</p>
+                    }
+                    <p id="history-note" class="history-note">
+                        The striped bar is the current, incomplete minute. Calendar-minute bars differ from the rolling last-hour statistic.
+                        As of @history.AsOf.ToString("yyyy-MM-dd HH:mm:ss") UTC.
+                    </p>
+                    <details class="history-details">
+                        <summary>Read minute counts</summary>
+                        <dl class="history-counts">
+                            @for (var i = 0; i < history.Counts.Count; i++)
+                            {
+                                <div>
+                                    <dt>@firstMinute.AddMinutes(i).ToString("HH:mm") UTC@(i == 59 ? " (partial)" : "")</dt>
+                                    <dd>@history.Counts[i].ToString("N0") events</dd>
+                                </div>
+                            }
+                        </dl>
+                    </details>
+                </figure>
+            }
+        </section>
+
         <section class="activity-panel">
             <div class="section-heading">
                 <div>
