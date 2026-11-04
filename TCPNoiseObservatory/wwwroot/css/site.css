@@ -261,3 +261,58 @@ footer {
         gap: 0.35rem;
     }
 }
+
+.site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.site-nav a,
+.about-panel a {
+    color: #8dffad;
+    text-underline-offset: 0.2em;
+}
+
+.site-nav a[aria-current="page"] {
+    color: #f0fff4;
+    font-weight: bold;
+}
+
+.site-nav a:focus-visible,
+.about-panel a:focus-visible {
+    outline: 2px solid #65d88a;
+    outline-offset: 4px;
+}
+
+.about-panel {
+    max-width: 50rem;
+    margin-top: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid #214c35;
+    background: rgba(5, 18, 12, 0.78);
+    color: #b7d9c0;
+    line-height: 1.7;
+}
+
+.about-panel section + section {
+    margin-top: 1.75rem;
+}
+
+.about-panel h2 {
+    margin-bottom: 0.5rem;
+}
+
+.about-panel p {
+    margin-bottom: 0.75rem;
+}
+
+.about-panel ul {
+    margin-top: 0.5rem;
+    padding-left: 1.5rem;
+}
+
+.about-panel li + li {
+    margin-top: 0.35rem;
+}
