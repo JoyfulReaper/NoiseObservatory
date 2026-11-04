@@ -37,7 +37,7 @@
                 Auto refresh
             </label>
 
-            <span id="refresh-status">30s</span>
+            <span id="refresh-status">@(Model.RefreshIntervalMilliseconds / 1000)s</span>
         </div>
 
         <section class="metrics" aria-label="Current noise metrics">
@@ -131,7 +131,7 @@
     </main>
     <script>
         (() => {
-            const intervalMs = 30_000;
+            const intervalMs = @Model.RefreshIntervalMilliseconds;
 
             const refreshButton = document.getElementById("refresh-now");
             const autoRefresh = document.getElementById("auto-refresh");
