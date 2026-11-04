@@ -34,7 +34,7 @@
             <section>
                 <h2>Where does the data come from?</h2>
                 <p><a href="https://github.com/JoyfulReaper/tcpnoise">TCPNoise</a> listens for incoming TCP connections on configured ports. Its sensors publish observations to a private NATS message bus. The Observatory consumes those events, removes data that should not be public, and displays recent activity and aggregate counts.</p>
-                <p>Some network endpoints, including the I2P mirror, receive only a sanitized snapshot from another Observatory instance. They do not connect to the private event bus.</p>
+                <p>Some network endpoints receive only a sanitized snapshot from another Observatory instance. They do not connect to the private event bus.</p>
             </section>
 
             <section>
