@@ -134,15 +134,15 @@ Implemented behavior:
 
 ## Phase 4 — Bounded event store, aggregation, and noise weather
 
-Status: **complete enough for the MVP**.
+Status: **complete for the MVP, including independent rolling counters**.
 
 Current store behavior:
 
 - singleton bounded in-memory store
 - maximum retained event count is bounded
 - recent public sample is bounded
-- 5-minute event count
-- 1-hour event count
+- 5-minute and 1-hour event counts independent of the retained event queue
+- shared fixed ring of 3,601 one-second count buckets
 - deterministic noise/weather classification
 - stable machine-readable noise level code in the public snapshot
 - human-facing display label derived from the same classification
@@ -163,7 +163,31 @@ The Razor page and `/api/snapshot` use the same centralized classification so ma
 
 Hysteresis is not currently implemented. If real deployments show condition flapping near thresholds, add it deliberately rather than embedding separate thresholds in the UI or API.
 
-Known limitation: recent-window aggregates are currently calculated from the bounded retained event queue. If traffic exceeds the retained capacity within an aggregate window, the longer-window count can undercount. A future improvement should keep bounded rolling aggregate counters separately from the recent-event sample.
+Rolling counters now handle bursts beyond 5,000 events without depending on the
+recent-event queue. Each accepted sanitized event contributes one, regardless of
+`SeenCount`. The store still retains only the last 5,000 event arrivals and returns
+at most 100 recent events with the existing timestamp/`SeenCount` ordering.
+
+Both windows reuse 3,601 timestamped one-second buckets (approximately 56 KiB on a
+64-bit runtime). Updates touch one bucket; snapshots scan the fixed array under
+the same lock used for additions and copy the bounded recent-event queue, then
+sort the sample outside the lock. Storage and snapshot work do not grow with
+event volume. `TimeProvider` makes expiration and timestamp tests deterministic.
+
+Counters use UTC event timestamps. Late/out-of-order events contribute only to
+their applicable windows. Events already older than an hour or future-dated at
+ingestion are excluded from counters, without changing sample retention; future
+events are not scheduled for later counting. Bucket timestamps prevent stale
+counts from surviving ring reuse or idle periods. Snapshots exclude the oldest
+partially overlapping second, so events can expire less than one second early
+and expired events are never intentionally included. Exact boundaries are
+inclusive at whole-second snapshot times. Existing public integer counts saturate
+at `int.MaxValue` instead of overflowing.
+
+Counters remain in memory and reset when the direct/source instance restarts.
+No public snapshot fields or remote mirror behavior changed. The same buckets
+could support a future last-60-minutes graph, but no graph or graph API is
+implemented.
 
 ## Phase 5 — Initial deployment
 
@@ -243,7 +267,6 @@ http://noise.joyfulreaper.i2p/
 
 Only after the deployed service remains stable:
 
-- rolling aggregate counters independent of the recent-event buffer
 - hysteresis for weather-level transitions if threshold flapping is observed
 - tiny historical charts using bounded aggregate buckets
 - plain-text `/status.txt`
@@ -281,4 +304,7 @@ These do not block the deployed MVP:
 
 ## Next useful coding slice
 
-The highest-value follow-up remains separating rolling aggregate counts from the bounded recent-event queue. That preserves accurate 5-minute/hour counts during bursts while keeping public recent-event memory strictly bounded.
+Independent rolling counters are complete and covered by deterministic boundary,
+expiration, out-of-order, high-volume, concurrency, and snapshot compatibility
+tests. A future small slice could refine public sensor display names. Historical
+charts remain optional follow-up work and can reuse the existing bounded buckets.

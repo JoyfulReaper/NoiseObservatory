@@ -131,7 +131,7 @@ Therefore:
 - aggregate data should have explicit size/window limits
 - remote snapshot state must remain bounded
 
-The current aggregate counts are derived from the bounded retained event buffer, so longer windows can undercount during sufficiently large bursts. Prefer bounded rolling aggregate counters for a future fix rather than making the recent-event buffer unbounded.
+Keep aggregate counts in bounded rolling time buckets independently of the retained recent-event buffer, so bursts beyond the sample capacity do not cap recent-window totals. Do not make the recent-event buffer unbounded.
 
 ## NATS integration
 
