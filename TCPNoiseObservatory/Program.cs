@@ -19,6 +19,7 @@ var remoteSnapshotUrl = builder.Configuration["RemoteSnapshot:Url"];
 
 if (string.IsNullOrWhiteSpace(remoteSnapshotUrl))
 {
+    builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddSingleton<NoiseEventStore>();
     builder.Services.AddSingleton<INoiseEventStore>(sp =>
         sp.GetRequiredService<NoiseEventStore>());

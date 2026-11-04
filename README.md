@@ -55,6 +55,29 @@ The current page includes:
 
 The core page remains server-rendered and useful without JavaScript. Static assets are local/self-hosted.
 
+### Event counts and retention
+
+The direct/source instance counts each accepted sanitized event once, regardless of
+its `SeenCount`. Five-minute and one-hour totals share a fixed ring of 3,601
+one-second buckets, independently of the last 5,000 event arrivals retained for
+the recent-event sample. Both totals can exceed 5,000; the page and snapshot still
+show at most 100 recent events, sorted by timestamp and then `SeenCount`.
+
+Counting uses event timestamps in UTC. Late/out-of-order arrivals count in the
+windows where they still belong. Events older than one hour or later than the
+source instance's current time are excluded from counters at ingestion; future
+events are not queued for later counting. These checks do not change recent-event
+sample behavior. Snapshots expire counts even when no new events arrive.
+
+The oldest partially overlapping second is excluded to avoid counting expired
+events. Consequently, events can expire less than one second early; exact window
+boundaries are inclusive when the current time is a whole second. The fixed
+bucket array uses approximately 56 KiB on a 64-bit runtime, independent of traffic
+volume. Additions update one bucket and snapshots scan a fixed number of buckets.
+The existing integer snapshot counts saturate at `int.MaxValue` rather than
+overflowing. Counters and recent events remain in memory and reset when the
+direct/source instance restarts.
+
 ## Non-goals
 
 Noise Observatory is **not** intended to be:
@@ -191,7 +214,7 @@ The MVP is live and consuming real TCPNoise events. The raw-event/public-event p
 
 The noise/weather classification is centralized and the public snapshot exposes both a stable machine-readable condition code and the human display label, plus the recent five-minute rate as events per minute. Hysteresis is not currently applied; condition changes are deterministic from the current five-minute count.
 
-Known follow-up work includes improving aggregate accounting so high event rates cannot undercount longer windows when the bounded recent-event store rolls over, refining public sensor display names, and adding tests around privacy-sensitive behavior.
+Rolling aggregate counters now keep five-minute and one-hour counts independent of recent-event sample rollover. Possible follow-up work includes refining public sensor display names and extending tests around privacy-sensitive behavior.
 
 See [PLAN.md](PLAN.md) for implementation history and possible follow-up work.
 
