@@ -1,5 +1,5 @@
 @page
-@model Microsoft.AspNetCore.Mvc.RazorPages.PageModel
+@model TCPNoiseObservatory.Pages.AboutModel
 
 <!DOCTYPE html>
 <html lang="en">
@@ -20,8 +20,8 @@
         </header>
 
         <nav class="site-nav" aria-label="Main navigation">
-            <a asp-page="/Index">Live dashboard</a>
-            <a asp-page="/About" aria-current="page">About</a>
+            <a href="@Url.Page("/Index")">Live dashboard</a>
+            <a href="@Url.Page("/About")" aria-current="page">About</a>
         </nav>
 
         <article class="about-panel">
