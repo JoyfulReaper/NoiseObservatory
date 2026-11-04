@@ -24,6 +24,11 @@
             </div>
         </header>
 
+        <nav class="site-nav" aria-label="Main navigation">
+            <a href="@Url.Page("/Index")" aria-current="page">Live dashboard</a>
+            <a href="@Url.Page("/About")">About</a>
+        </nav>
+
         <div class="refresh-controls">
             <button type="button" id="refresh-now">Refresh now</button>
 
@@ -32,7 +37,7 @@
                 Auto refresh
             </label>
 
-            <span id="refresh-status">10s</span>
+            <span id="refresh-status">@(Model.RefreshIntervalMilliseconds / 1000)s</span>
         </div>
 
         <section class="metrics" aria-label="Current noise metrics">
@@ -126,13 +131,14 @@
     </main>
     <script>
         (() => {
-            const intervalMs = 30_000;
+            const intervalMs = @Model.RefreshIntervalMilliseconds;
 
             const refreshButton = document.getElementById("refresh-now");
             const autoRefresh = document.getElementById("auto-refresh");
             const status = document.getElementById("refresh-status");
 
             let secondsRemaining = intervalMs / 1000;
+            status.textContent = `${secondsRemaining}s`;
 
             refreshButton.addEventListener("click", () => {
                 window.location.reload();

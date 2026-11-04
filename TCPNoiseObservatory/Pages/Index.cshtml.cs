@@ -13,6 +13,8 @@ public sealed class IndexModel : PageModel
         _snapshotProvider = snapshotProvider;
     }
 
+    public int RefreshIntervalMilliseconds => 30_000;
+
     public NoiseSnapshot Snapshot { get; private set; } = default!;
 
     public string NoiseLevel => Snapshot.LevelDisplay;

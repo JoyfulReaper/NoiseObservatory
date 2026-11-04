@@ -1,0 +1,66 @@
+@page
+@model TCPNoiseObservatory.Pages.AboutModel
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>About — TCPNoise Observatory</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <main class="observatory-shell">
+        <header class="masthead">
+            <div>
+                <p class="eyebrow">Behind the noise</p>
+                <h1>About the Observatory</h1>
+                <p class="subtitle">A window into the background traffic that finds public Internet services, whether anyone invited it or not.</p>
+            </div>
+        </header>
+
+        <nav class="site-nav" aria-label="Main navigation">
+            <a href="@Url.Page("/Index")">Live dashboard</a>
+            <a href="@Url.Page("/About")" aria-current="page">About</a>
+        </nav>
+
+        <article class="about-panel">
+            <section>
+                <h2>What am I looking at?</h2>
+                <p>Publicly reachable hosts receive a steady stream of unsolicited connection attempts: automated scanners, bots, misconfigured clients, and the occasional curious human. TCPNoise Observatory turns a small, sanitized sample of those encounters into a live status display.</p>
+                <p>Think of it as an Internet noise meter, not an intrusion-detection system. A connection attempt alone does not mean an attack succeeded—or even that one was attempted.</p>
+            </section>
+
+            <section>
+                <h2>Where does the data come from?</h2>
+                <p><a href="https://github.com/JoyfulReaper/tcpnoise">TCPNoise</a> listens for incoming TCP connections on configured ports. Its sensors publish observations to a private NATS message bus. The Observatory consumes those events, removes data that should not be public, and displays recent activity and aggregate counts.</p>
+                <p>Some network endpoints receive only a sanitized snapshot from another Observatory instance. They do not connect to the private event bus.</p>
+            </section>
+
+            <section>
+                <h2>What's with the weather?</h2>
+                <p>The weather-style status is a playful label for the number of recorded events in the last five minutes. Quiet means fewer connections; drizzle, rain, heavy rain, and botnet storms mean progressively more. It is not a security alert, a threat score, or a real weather forecast.</p>
+                <p>The dashboard also shows counts over the last five minutes and hour, plus a limited list of recent observations. During very busy periods, counts can understate traffic because the in-memory event buffer is bounded.</p>
+            </section>
+
+            <section>
+                <h2>What is kept private?</h2>
+                <ul>
+                    <li>Source IP addresses are masked before they reach the public view.</li>
+                    <li>Raw captured payloads, source ports, credentials, and private network details are not exposed.</li>
+                    <li>Only approved sensor names and limited, sanitized banner information may appear.</li>
+                    <li>Recent observations are held in bounded memory, not a public historical database.</li>
+                </ul>
+                <p>This is an intentionally limited view of Internet background noise, not a public packet capture.</p>
+            </section>
+
+            <section>
+                <h2>Explore the code</h2>
+                <p>Both projects are open source: <a href="https://github.com/JoyfulReaper/tcpnoise">TCPNoise</a> collects the observations, and <a href="https://github.com/JoyfulReaper/NoiseObservatory">Noise Observatory</a> presents the sanitized view. The latter repository also includes the detailed <a href="https://github.com/JoyfulReaper/NoiseObservatory/blob/main/PRIVACY.md">privacy rules</a>.</p>
+            </section>
+        </article>
+
+        <footer>TCPNoise Observatory &mdash; observing the Internet's background chatter.</footer>
+    </main>
+</body>
+</html>
