@@ -30,7 +30,7 @@ public sealed class PublicPagesTests : IClassFixture<SnapshotFactory>
 
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("id=\"refresh-status\">30s</span>", html);
-        Assert.Contains("const intervalMs = 30_000;", html);
+        Assert.Contains("const intervalMs = 30000;", html);
         Assert.Contains("href=\"/About\"", html);
         Assert.DoesNotContain("id=\"refresh-status\">10s</span>", html);
     }
